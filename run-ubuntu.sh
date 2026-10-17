@@ -31,6 +31,8 @@ fi
 if [ ! -t 1 ] && [ -z "${EVE_IN_TERMINAL:-}" ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
   export EVE_IN_TERMINAL=1
   if command -v gnome-terminal >/dev/null 2>&1; then exec gnome-terminal -- "$SELF" "$@"; fi
+  if command -v ptyxis >/dev/null 2>&1; then exec ptyxis -- "$SELF" "$@"; fi  # Ubuntu 25.10+ default
+  if command -v kgx >/dev/null 2>&1; then exec kgx -- "$SELF" "$@"; fi  # GNOME Console
   if command -v konsole >/dev/null 2>&1; then exec konsole -e "$SELF" "$@"; fi
   if command -v xfce4-terminal >/dev/null 2>&1; then exec xfce4-terminal -x "$SELF" "$@"; fi
   if command -v x-terminal-emulator >/dev/null 2>&1; then exec x-terminal-emulator -e "$SELF" "$@"; fi

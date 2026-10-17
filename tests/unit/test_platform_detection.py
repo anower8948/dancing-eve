@@ -78,3 +78,21 @@ def test_wayland_prefers_xwayland_when_available(monkeypatch) -> None:
     assert preferred_qt_platform({"XDG_SESSION_TYPE": "wayland"}) is None
     assert preferred_qt_platform({"XDG_SESSION_TYPE": "wayland", "DISPLAY": ":0", "QT_QPA_PLATFORM": "wayland"}) is None
     assert preferred_qt_platform({"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"}) is None
+
+
+def test_renderer_fallback_order() -> None:
+    from eve.rendering.panda3d_renderer import SOFTWARE_MODULE, pipe_candidates
+
+    assert pipe_candidates("darwin", {}) == [None, SOFTWARE_MODULE]
+    assert pipe_candidates("win32", {}) == [None, SOFTWARE_MODULE]
+    assert pipe_candidates("linux", {}) == [None, "p3headlessgl", SOFTWARE_MODULE]
+    assert pipe_candidates("linux", {"EVE_RENDERER": "software"}) == [SOFTWARE_MODULE]
+
+
+def test_missing_linux_packages_are_reported_by_package_name() -> None:
+    from setup.dependency_checker import missing_linux_packages
+
+    present = {"GL", "EGL", "pulse", "xkbcommon"}
+    missing = missing_linux_packages(lambda lib: f"lib{lib}.so" if lib in present else None)
+    packages = [package for package, _ in missing]
+    assert "libxcb-cursor0" in packages and "libgl1" not in packages

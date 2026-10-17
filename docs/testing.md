@@ -7,7 +7,7 @@
 EVE_SKIP_GUI_TESTS=1 .venv/bin/pytest -q       # headless machines (skips gui/render tests)
 ```
 
-Latest result (macOS 27.0, M2, Python 3.12.13, 2026-10-17): **157 passed**, ruff clean,
+Latest result (macOS 27.0, M2, Python 3.12.13, 2026-10-17): **159 passed**, ruff clean,
 mypy clean (75 files).
 
 ## What is covered
@@ -51,6 +51,31 @@ Status on macOS 27: 1–5 and 11 verified via `--test-capture`, `--smoke-test` a
 screenshots; 6–7 verified in simulation (demo song / unit tests) not by watching a real
 track; 8–10 not verified (permission already granted); 12 verified (start/stop cycles
 release the stream). Windows and Ubuntu: none run yet.
+
+## Linux (Ubuntu 24.04) in a container
+
+```bash
+tests/platform/run_linux_tests.sh      # needs Docker (e.g. OrbStack / Docker Desktop)
+```
+Builds `tests/platform/ubuntu.Dockerfile` (Ubuntu 24.04 with Xvfb, Mesa software
+OpenGL, PulseAudio and Qt's X11 libraries), copies the working tree in (not your `.venv`)
+and runs: `run-ubuntu.sh` first-time setup and repeat launch, the full pytest suite
+(including the GUI/render tests on the virtual display), audio diagnostics, a **real
+capture from the PulseAudio monitor** while `paplay` plays a beat into a virtual sink,
+the app smoke test, both renderer fallbacks (no X display → headless EGL; forced software
+rasteriser) and a PyInstaller build. Screenshots land in `tests/platform/out/`.
+
+Limits: it is a container, not a desktop — no real GPU, no compositor, no tray, no
+PipeWire session manager — so transparency, always-on-top, tray and real speakers are not
+covered.
+
+## Windows and Ubuntu in CI
+
+`.github/workflows/platforms.yml` runs on GitHub's `windows-latest` and `ubuntu-24.04`
+machines: `run.bat` / `run-ubuntu.sh` setup (twice), pytest, audio diagnostics, the
+demo smoke test with a screenshot, and a PyInstaller build that is then started.
+Ubuntu also does the PulseAudio monitor capture. CI machines have no sound card or GPU,
+so Windows WASAPI capture of real audio and GPU rendering still need a real PC.
 
 ## Performance measurement
 

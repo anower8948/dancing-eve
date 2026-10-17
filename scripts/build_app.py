@@ -41,7 +41,10 @@ def panda3d_binaries() -> list[str]:
     folder = Path(panda3d.__file__).parent
     sep = ";" if sys.platform.startswith("win") else ":"
     args: list[str] = []
-    for pattern in ("libpandagl.*", "libpandagl.dll", "libpandagl.so*"):
+    # GPU OpenGL module, plus the fallbacks the renderer may switch to at runtime:
+    # headless EGL (Linux) and the software rasteriser (all platforms).
+    patterns = ("libpandagl.*", "libp3headlessgl.*", "libp3tinydisplay.*")
+    for pattern in patterns:
         for path in folder.glob(pattern):
             args += ["--add-binary", f"{path}{sep}panda3d"]
     for prc in (folder / "etc").glob("*.prc"):
@@ -114,12 +117,37 @@ def patch_macos_plist(app: Path) -> None:
         plistlib.dump(info, handle)
 
 
+def check_prerequisites() -> str | None:
+    """Return a problem description if this machine cannot build, else None."""
+    if sys.platform.startswith("linux"):
+        import sysconfig
+
+        # PyInstaller bundles the runtime soname (e.g. libpython3.12.so.1.0), which Ubuntu's
+        # system Python ships in a separate package.
+        libdir = Path(sysconfig.get_config_var("LIBDIR") or "")
+        multiarch = sysconfig.get_config_var("MULTIARCH") or ""
+        names = [sysconfig.get_config_var("INSTSONAME") or "", sysconfig.get_config_var("LDLIBRARY") or ""]
+        names = [n for n in names if ".so" in n]
+        candidates = [folder / name for name in names for folder in (libdir, libdir / multiarch)]
+        if not any(c.exists() for c in candidates):
+            version = f"{sys.version_info[0]}.{sys.version_info[1]}"
+            return (
+                f"PyInstaller needs Python's shared library (libpython{version}.so). On Ubuntu install it with:\n"
+                f"    sudo apt install libpython{version}"
+            )
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--onefile", action="store_true")
     args = parser.parse_args()
     if not (3, 11) <= sys.version_info[:2] < (3, 14):
         print("Run this with the project's virtual environment (Python 3.11–3.13).")
+        return 2
+    problem = check_prerequisites()
+    if problem:
+        print(problem)
         return 2
     ensure_pyinstaller()
     import PyInstaller.__main__

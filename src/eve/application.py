@@ -373,7 +373,7 @@ class EveApplication(QObject):
 
     def _apply_shadow(self) -> None:
         character = self.renderer.character
-        if character is not None:
+        if character is not None and not character.fixed_function:  # no soft shadow in the fallback
             character.shadow.show() if self.settings.show_shadow else character.shadow.hide()
 
     def _sync_tray(self) -> None:

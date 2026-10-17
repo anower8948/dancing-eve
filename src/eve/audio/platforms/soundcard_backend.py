@@ -144,7 +144,13 @@ class SoundCardBackend(AudioCaptureBackend):
     def _run(self, source_id: str | None) -> None:
         com_initialize()
         try:
+            import warnings
+
             import soundcard as sc
+
+            # Windows reports harmless "data discontinuity" glitches as warnings; they would
+            # flood the log during long sessions.
+            warnings.filterwarnings("ignore", message="data discontinuity")
 
             while not self._stop.is_set():
                 resolved = self._resolve(sc, source_id)

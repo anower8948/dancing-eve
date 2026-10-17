@@ -1,6 +1,12 @@
 # Current state — read this first
 
-_Last updated: 2026-10-17 (session 2: more dance moves, phrases, expressions, lower idle CPU)._
+_Last updated: 2026-10-17 (session 3: Windows/Linux compatibility work)._
+
+**Session 3:** Ubuntu 24.04 verified in Docker (`tests/platform/run_linux_tests.sh`):
+setup, 159 tests, real PulseAudio monitor capture, rendering, headless-EGL and software
+fallbacks, PyInstaller build. Renderer fallback chain added; setup offers missing apt
+packages; Windows long-path warning; CI workflow `.github/workflows/platforms.yml` for
+Windows + Ubuntu (not yet run — needs a push).
 
 ## In one paragraph
 
@@ -34,11 +40,12 @@ macOS 27.0 (26A428), Apple M2 (8-core CPU, 10-core GPU), Python 3.12.13 (Homebre
   expressions, bolder happy eyes, overhead arm poses, wider 1:1 window, monotonic dance
   clock. Checked with rendered pose sheets and tests — not yet watched live with real songs.
 * PyInstaller `dist/ProjectEVE.app` (157 MB): renders and captures when run from terminal.
-* Quality: 157 tests pass; ruff + mypy clean.
+* Quality: 159 tests pass; ruff + mypy clean.
 
 ## Incomplete / unverified
 
-* Windows & Ubuntu: everything (capture, launchers, windows, packaging).
+* Windows: everything until CI runs; then real audio/GPU/desktop behaviour on a PC.
+* Ubuntu desktop: transparency, tray, always-on-top, PipeWire, real GPU (container only so far).
 * macOS: permission-denied flow live; drag/click-through/tray menu by hand;
   double-clicking `run.command` in Finder and the `.app` in Finder.
 * External model loading (hook only); GUI setup window; launch at login.
@@ -56,7 +63,7 @@ macOS 27.0 (26A428), Apple M2 (8-core CPU, 10-core GPU), Python 3.12.13 (Homebre
 ## Recent test results
 
 `.venv/bin/python scripts/run_dev.py check` → ruff OK, format OK, mypy OK (75 files),
-pytest **157 passed** (~15 s, includes real Qt+Panda3D start-up tests).
+pytest **159 passed** (~15 s, includes real Qt+Panda3D start-up tests).
 
 ## Known bugs / rough edges
 

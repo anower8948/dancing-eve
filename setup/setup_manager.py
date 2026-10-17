@@ -25,7 +25,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from setup import dependency_checker as deps
 from setup import environment_manager as envm
@@ -296,15 +296,46 @@ class SetupManager:
                     "EVE will need a virtual audio device such as BlackHole.".format(self.platform.release)
                 )
         elif self.platform.system == LINUX:
-            notes.extend(deps.check_linux_system_libraries())
+            missing = deps.missing_linux_packages()
+            if missing:
+                missing = self._offer_linux_packages(missing)
+            for package, purpose in missing:
+                notes.append("Missing Ubuntu package '{}' — needed for {}.".format(package, purpose))
             if self.platform.session_type == "wayland":
                 notes.append(
                     "Wayland session: EVE runs through XWayland for always-on-top and positioning when available."
+                )
+        elif self.platform.system == WINDOWS:
+            # PySide6 installs deeply nested files; without long-path support a deep
+            # project folder can push them past Windows' 260-character limit.
+            longest = len(str(self.venv_dir)) + 120
+            if longest > 250 and deps.windows_long_paths_enabled() is False:
+                notes.append(
+                    "The project folder path is long and Windows long paths are disabled; "
+                    "if installation fails, move the folder closer to the drive root (e.g. C:\\EVE)."
                 )
         for note in notes:
             self.log("System note: " + note)
         self.warnings.extend(notes)
         self.reporter.complete(key, "{} note(s)".format(len(notes)) if notes else "ok")
+
+    def _offer_linux_packages(self, missing: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+        """Offer to apt-install missing libraries. Returns what is still missing."""
+        packages = [package for package, _ in missing]
+        if not shutil.which("apt-get"):
+            return missing
+        self.say("")
+        self.say("EVE needs some system libraries that are not installed: " + ", ".join(packages))
+        self.say("It can install them by running:")
+        self.say("    sudo apt-get install -y " + " ".join(packages))
+        self.say("This uses 'sudo' because system packages can only be installed by an administrator.")
+        if not self.ask("Install them now?"):
+            return missing
+        command = ["sudo", "apt-get", "install", "-y"] + packages
+        self.log("Running: " + " ".join(command))
+        if subprocess.call(command) != 0:
+            self.say("The installation did not succeed; EVE will try to start anyway.")
+        return deps.missing_linux_packages()
 
     def step_venv(self, key: str) -> None:
         assert self.python is not None

@@ -12,6 +12,7 @@ Must be used from the GUI (main) thread.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -65,6 +66,27 @@ def _configure_panda() -> None:
     _PRC_LOADED = True
 
 
+SOFTWARE_MODULE = "p3tinydisplay"  # CPU rasteriser shipped in the Panda3D wheel
+
+
+def pipe_candidates(platform: str | None = None, env: dict[str, str] | None = None) -> list[str | None]:
+    """Display modules to try, best first. ``None`` = Panda's default (OpenGL).
+
+    * Linux adds headless EGL (works without an X server, e.g. pure Wayland or SSH).
+    * Everyone falls back to the software rasteriser (VMs, Remote Desktop sessions with
+      only GDI OpenGL 1.1, broken drivers). ``EVE_RENDERER=software`` forces it.
+    """
+    platform = platform or sys.platform
+    env = dict(os.environ) if env is None else env
+    if env.get("EVE_RENDERER", "").lower() == "software":
+        return [SOFTWARE_MODULE]
+    candidates: list[str | None] = [None]
+    if platform.startswith("linux"):
+        candidates.append("p3headlessgl")
+    candidates.append(SOFTWARE_MODULE)
+    return candidates
+
+
 class Panda3DRenderer(CharacterRenderer):
     def __init__(self, settings: RenderSettings | None = None, character: CharacterConfig | None = None) -> None:
         self.settings = settings or RenderSettings()
@@ -77,24 +99,65 @@ class Panda3DRenderer(CharacterRenderer):
         self.character: EveCharacter | None = None
         self._frame: np.ndarray | None = None
         self.width = self.height = 0
+        self.simplified_shading = False  # True when the GPU/driver has no GLSL
         self._description = "Panda3D (not initialised)"
 
     # -- lifecycle ------------------------------------------------------------------------
     def initialize(self, width: int, height: int) -> None:
         _configure_panda()
         self._engine = GraphicsEngine.getGlobalPtr()
-        self._pipe = GraphicsPipeSelection.getGlobalPtr().makeDefaultPipe()
-        if self._pipe is None:
-            raise RuntimeError("Panda3D could not open a graphics pipe (no OpenGL driver?)")
+        selection = GraphicsPipeSelection.getGlobalPtr()
         self.scene = SceneManager(self.settings)
         self.character = EveCharacter(self.scene.scene, self.character_config)
-        self._create_buffer(width, height)
+        problems: list[str] = []
+        for module in pipe_candidates():
+            label = module or "default OpenGL"
+            pipe = selection.makeDefaultPipe() if module is None else selection.makeModulePipe(module)
+            if pipe is None:
+                problems.append(f"{label}: no graphics pipe")
+                continue
+            self._pipe = pipe
+            try:
+                self._create_buffer(width, height)
+            except RuntimeError as exc:
+                problems.append(f"{label}: {exc}")
+                continue
+            self._engine.renderFrame()  # initialises the GSG so its capabilities are known
+            gsg = self._buffer.getGsg() if self._buffer is not None else None
+            if gsg is None or not gsg.isValid():
+                problems.append(f"{label}: graphics context is not valid")
+                self._release_buffer()
+                continue
+            if not gsg.getSupportsGlsl():
+                # Old/virtual GL (e.g. GDI OpenGL 1.1 over Remote Desktop) or the software
+                # rasteriser: no shaders, so use simplified fixed-function shading.
+                self.simplified_shading = True
+                self.scene.use_fixed_function_lighting()
+                self.character.use_fixed_function()
+            break
+        else:
+            raise RuntimeError("no usable renderer — " + "; ".join(problems))
+        if problems:
+            log.warning("renderer fallbacks used: %s", "; ".join(problems))
+        assert self._buffer is not None and self._pipe is not None
         gsg = self._buffer.getGsg()
-        self._description = (
-            f"Panda3D {self._pipe.getInterfaceName()} — {gsg.getDriverRenderer()} "
-            f"({gsg.getDriverVersion()}), MSAA {self._buffer.getFbProperties().getMultisamples()}x"
-        )
+        shading = " — simplified shading (no GLSL)" if self.simplified_shading else ""
+        interface = self._pipe.getInterfaceName()
+        if "tiny" in interface.lower():
+            details = "software rasteriser, no antialiasing"
+        else:
+            details = (
+                f"{gsg.getDriverRenderer()} ({gsg.getDriverVersion()}), "
+                f"MSAA {self._buffer.getFbProperties().getMultisamples()}x"
+            )
+        self._description = f"Panda3D {interface} — {details}{shading}"
         log.info("renderer: %s", self._description)
+
+    def _release_buffer(self) -> None:
+        if self._engine is not None and self._buffer is not None:
+            self._engine.removeWindow(self._buffer)
+        self._buffer = None
+        self._texture = None
 
     def _create_buffer(self, width: int, height: int) -> None:
         assert self._engine is not None and self.scene is not None

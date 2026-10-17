@@ -14,7 +14,10 @@ Logs: see [setup-and-installation.md](setup-and-installation.md#where-things-are
 | Ubuntu: Qt error "Could not load the Qt platform plugin xcb" | `sudo apt install libxcb-cursor0` |
 | Ubuntu: black box instead of transparency | No compositing window manager. Use GNOME/KDE or enable compositing. |
 | Ubuntu: no tray icon | GNOME needs the AppIndicator extension (enabled on stock Ubuntu). Without a tray, EVE disables click-through and hiding so it can never get stuck. |
-| "The 3D renderer could not start" | OpenGL 2.1+ driver required. On VMs/remote desktops, enable 3D acceleration. |
+| "The 3D renderer could not start" | EVE tries GPU OpenGL, then (Linux) headless EGL, then a built-in software renderer, so this should be rare; the log lists why each failed. Update graphics drivers. |
+| Robot looks flatter, no glow or shadow ("simplified shading" in Settings → Advanced) | The GPU/driver has no GLSL (e.g. Remote Desktop's GDI OpenGL 1.1, some VMs) or the software renderer is in use. Enable 3D acceleration / update drivers. Force the software renderer for testing with `EVE_RENDERER=software`. |
+| Ubuntu: `BadMatch (invalid parameter attributes)` lines in the terminal | Panda3D printing that the driver has no antialiased offscreen buffer; EVE retries without antialiasing. Harmless. |
+| Ubuntu: packaging fails with "Python shared library … not found" | `sudo apt install libpython3.12` (the build script detects this). |
 | Robot does not react although status is Listening | Raise *Audio sensitivity*; check the debug panel (Music activity, Tempo). Very quiet/ambient music stays in CALM by design. |
 | Robot follows the beat oddly (double/half speed) | Tempo octave ambiguity (e.g. slow songs with busy hi-hats). Dancing still stays on the grid; better tracking is on the roadmap. |
 | "Project EVE is already running" | Another instance holds the lock. Use its tray icon. A stale lock from a crash is cleared automatically. |

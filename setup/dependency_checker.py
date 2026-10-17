@@ -147,17 +147,41 @@ def validate_imports(python: Path, modules: Dict[str, str], timeout: float = 120
     return ["{} ({})".format(modules.get(name, name), err) for name, err in failures]
 
 
+# (library name for ctypes.util.find_library, Ubuntu/Debian package, purpose)
+LINUX_LIBRARIES = [
+    ("xcb-cursor", "libxcb-cursor0", "Qt's X11 platform plugin (Qt 6.5+)"),
+    ("xkbcommon-x11", "libxkbcommon-x11-0", "Qt's X11 platform plugin"),
+    ("xcb-icccm", "libxcb-icccm4", "Qt's X11 platform plugin"),
+    ("xcb-keysyms", "libxcb-keysyms1", "Qt's X11 platform plugin"),
+    ("xkbcommon", "libxkbcommon0", "Qt keyboard handling"),
+    ("pulse", "libpulse0", "audio capture through PulseAudio / PipeWire-Pulse"),
+    ("GL", "libgl1", "OpenGL rendering"),
+    ("EGL", "libegl1", "OpenGL/EGL rendering"),
+]
+
+
+def missing_linux_packages(find_library=ctypes.util.find_library) -> List[Tuple[str, str]]:
+    """Return (package, purpose) for shared libraries Qt/Panda3D/SoundCard need but lack."""
+    return [(package, purpose) for lib, package, purpose in LINUX_LIBRARIES if find_library(lib) is None]
+
+
 def check_linux_system_libraries() -> List[str]:
-    """Return human-readable warnings for shared libraries Qt/Panda3D/SoundCard need."""
-    needed = [
-        ("xcb-cursor", "libxcb-cursor0", "Qt's X11 platform plugin (Qt 6.5+)"),
-        ("pulse", "libpulse0", "audio capture through PulseAudio / PipeWire-Pulse"),
-        ("GL", "libgl1", "OpenGL rendering"),
-        ("EGL", "libegl1", "OpenGL/EGL rendering"),
-        ("xkbcommon", "libxkbcommon0", "Qt keyboard handling"),
+    """Human-readable warnings for missing shared libraries."""
+    return [
+        "Missing Ubuntu package '{}' — needed for {}.".format(package, purpose)
+        for package, purpose in missing_linux_packages()
     ]
-    warnings = []
-    for lib, package, purpose in needed:
-        if ctypes.util.find_library(lib) is None:
-            warnings.append("Missing {} (Ubuntu package '{}') — needed for {}.".format(lib, package, purpose))
-    return warnings
+
+
+def windows_long_paths_enabled() -> Optional[bool]:
+    """Whether Windows allows paths longer than 260 characters (None if unknown)."""
+    if not sys.platform.startswith("win"):
+        return None
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem") as key:
+            value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
+        return bool(value)
+    except OSError:
+        return None

@@ -1,5 +1,7 @@
 # Next steps (priority order)
 
+0. **Run the CI workflow** (push to GitHub) and fix anything it finds on Windows/Ubuntu.
+   Done when: both `platforms` jobs are green and artifacts (screenshots, builds) look right.
 1. **Windows 10/11 real test.**
    Done when: `run.bat` completes setup from a clean checkout; `--test-capture 15` reports
    `RECEIVING_AUDIO` with music playing; the robot dances, idles on pause, quits cleanly;

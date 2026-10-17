@@ -18,8 +18,9 @@ Linux.
 
 ## What the build includes
 
-* `eve` (all submodules), `panda3d.core` plus the runtime-loaded `libpandagl` display
-  module and Panda's `.prc` files. Not `--collect-all panda3d`: the wheel also ships
+* `eve` (all submodules), `panda3d.core` plus the runtime-loaded display modules —
+  `libpandagl` (GPU OpenGL), `libp3headlessgl` (Linux headless EGL fallback) and
+  `libp3tinydisplay` (software fallback) — and Panda's `.prc` files. Not `--collect-all panda3d`: the wheel also ships
   optional x86_64-only modules (libRocket) that make PyInstaller abort on arm64.
   When frozen, the renderer sets Panda's `plugin-path` to the bundled folder.
 * macOS: PyObjC ScreenCaptureKit/CoreMedia/Quartz; `Info.plist` gets
@@ -57,3 +58,4 @@ permission) was not tested.** Windows and Ubuntu builds: not attempted (no machi
 | App starts but no 3D window / "could not open a graphics pipe" | `libpandagl` missing → check the `--add-binary` lines; on Linux install `libgl1 libegl1`. |
 | Qt "could not load the Qt platform plugin xcb" | Install `libxcb-cursor0` on the build/target machine. |
 | SoundCard `FileNotFoundError: …pulseaudio.py.h` | Keep `--collect-all soundcard` (header files are data). |
+| Linux: `Python shared library ('libpython3.12.so.1.0') was not found` | Ubuntu's system Python ships it separately: `sudo apt install libpython3.12`. `build_app.py` checks this before starting. |

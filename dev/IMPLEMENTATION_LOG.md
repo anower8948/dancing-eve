@@ -1,5 +1,24 @@
 # Implementation log
 
+## 2026-10-17 — Session 3 (Windows/Linux compatibility)
+
+* Docker (OrbStack) available → `tests/platform/ubuntu.Dockerfile` +
+  `run_linux_tests.sh`. Ubuntu 24.04 arm64: run-ubuntu.sh setup 26 s, reuse works,
+  159 tests pass (incl. Qt/Panda3D on Xvfb + Mesa llvmpipe), PulseAudio monitor capture
+  119.9 BPM / conf 0.79, app 57 FPS (llvmpipe, no MSAA → retried without).
+* Renderer fallback chain: default GL → p3headlessgl (Linux) → p3tinydisplay; GL without
+  GLSL → fixed-function "simplified shading" (no halos/shadow). Verified: headless EGL with
+  no DISPLAY, forced software renderer (macOS and Linux).
+* PyInstaller on Ubuntu needed `libpython3.12` (system Python); build script now checks
+  the runtime soname first (first version of the check looked for the dev symlink and
+  wrongly refused). Linux build: 233 MB, runs with GL and with the software renderer.
+  Fallback display modules are now bundled on every OS.
+* Setup: offers `sudo apt-get install` for missing Qt/GL/Pulse libraries (asks first);
+  Windows long-path warning; run-ubuntu.sh knows Ptyxis and GNOME Console; SoundCard
+  "data discontinuity" warnings filtered.
+* `.github/workflows/platforms.yml`: Windows + Ubuntu jobs (setup ×2, tests, diagnostics,
+  smoke test + screenshot, PyInstaller build + run). Not run yet.
+
 ## 2026-10-17 — Session 2 (macOS 27.0, Apple M2)
 
 * Added 14 moves: side_step, robot_pop, body_wave, headbang, fist_pump, hop_turn,

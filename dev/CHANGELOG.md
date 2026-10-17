@@ -12,6 +12,13 @@
 - Companion window is square and slightly wider in view; default size 280 px.
 - Lower CPU: ≈10 % idle (was ≈19 %), 15 FPS when sleepy, single-pass painting.
 
+- Windows/Linux compatibility: renderer fallback chain (GPU OpenGL → headless EGL on
+  Linux → software), simplified shading without GLSL, Ubuntu setup offers missing apt
+  packages, Windows long-path warning, more Ubuntu terminals, Linux packaging check,
+  fallback display modules bundled in builds.
+- Ubuntu 24.04 container test harness (`tests/platform/`) and a GitHub Actions workflow
+  for Windows and Ubuntu.
+
 ### Fixed
 - Dance clock can no longer stall or run backwards on inconsistent beat-phase input.
 - Phrases could repeat long-cooldown moves (spins) back to back.

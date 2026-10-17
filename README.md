@@ -41,9 +41,10 @@ Details: [docs/setup-and-installation.md](docs/setup-and-installation.md).
 | | |
 |---|---|
 | macOS (Apple Silicon) | **Working and verified** — real system-audio capture, rendering, transparency, setup, packaging. |
-| Windows / Ubuntu | **Implemented, not yet tested on real machines.** |
+| Ubuntu 24.04 | **Verified in a container**: setup, tests, real PulseAudio capture, rendering, packaging. Not yet on a real desktop. |
+| Windows 10/11 | **Implemented; CI workflow ready**, not yet run on a Windows machine. |
 
-157 automated tests pass; ruff and mypy are clean. See
+159 automated tests pass; ruff and mypy are clean. See
 [docs/cross-platform-support.md](docs/cross-platform-support.md) and
 [docs/known-limitations.md](docs/known-limitations.md).
 

@@ -1,8 +1,8 @@
 # Known limitations
 
-1. **Windows and Ubuntu are untested.** Capture (WASAPI loopback, Pulse monitors),
-   launchers, window behaviour and packaging are implemented but have never run on those
-   OSes. Expect fixes after the first real test.
+1. **Windows has not run yet** (no machine; a GitHub Actions workflow is ready). **Ubuntu**
+   was verified in a container (setup, tests, PulseAudio capture, rendering, packaging) but
+   not on a real desktop — transparency, tray, always-on-top and PipeWire are unverified.
 2. **macOS permission-denied flow not observed live** (the dev machine had the permission).
    Unit-tested with a fake backend only.
 3. **Tempo octave errors:** slow songs with off-beat hi-hats can be read at double tempo

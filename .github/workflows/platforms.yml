@@ -1,0 +1,126 @@
+# Runs Project EVE on real Windows and Ubuntu machines: the launcher's first-time setup,
+# the test suite, audio diagnostics, a rendered smoke test and a PyInstaller build.
+# CI machines have no sound card and no GPU, so audio capture is only diagnosed there
+# (Linux gets a virtual PulseAudio sink for a real capture test) and rendering may use
+# the software fallback. Screenshots, reports and builds are uploaded as artifacts.
+name: platforms
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: First launch — run.bat (setup only)
+        shell: cmd
+        run: run.bat --no-launch < NUL
+
+      - name: Second launch reuses the environment
+        shell: cmd
+        run: run.bat --no-launch < NUL
+
+      - name: Tests
+        shell: pwsh
+        run: |
+          .venv\Scripts\python -m pip install -q -r requirements-dev.txt
+          .venv\Scripts\python -m pytest -o addopts="" -q
+
+      - name: Audio diagnostics (WASAPI)
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: .venv\Scripts\python -m eve --diagnose-audio
+
+      - name: App smoke test (demo) with screenshot
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+          EVE_HOME: ${{ runner.temp }}\evehome
+        run: .venv\Scripts\python -m eve --demo --smoke-test 8 --screenshot windows_frame.png | Tee-Object smoke_windows.json
+
+      - name: PyInstaller build
+        shell: pwsh
+        run: |
+          .venv\Scripts\python scripts\build_windows.py
+          $env:EVE_HOME = "$env:RUNNER_TEMP\evehome2"
+          dist\ProjectEVE\ProjectEVE.exe --demo --smoke-test 5 | Tee-Object smoke_windows_packaged.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-results
+          path: |
+            windows_frame.png
+            smoke_windows*.json
+            dist/ProjectEVE/
+
+  ubuntu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Desktop-like system packages (display, GL, Qt X11 libraries, PulseAudio)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3 python3-venv libpython3.12t64 xvfb \
+            libgl1 libegl1 libgl1-mesa-dri libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libdbus-1-3 libfontconfig1 \
+            pulseaudio pulseaudio-utils libpulse0
+
+      - name: Start virtual display and sound server
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=speakers
+          pactl set-default-sink speakers
+
+      - name: First launch — run-ubuntu.sh (setup only)
+        run: ./run-ubuntu.sh --no-launch < /dev/null
+
+      - name: Second launch reuses the environment
+        run: ./run-ubuntu.sh --no-launch < /dev/null
+
+      - name: Tests
+        run: |
+          .venv/bin/pip install -q -r requirements-dev.txt
+          .venv/bin/pytest -o addopts="" -q
+
+      - name: Real capture from the PulseAudio monitor
+        env:
+          PYTHONPATH: src:.
+        run: |
+          .venv/bin/python -c "import numpy as np, wave; from tests.fixtures import synthetic_audio as sa; x=sa.beat_track(14, bpm=120, amp=0.6); w=wave.open('beat.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000); w.writeframes((np.clip(x,-1,1)*32767).astype(np.int16).tobytes()); w.close()"
+          (sleep 1; paplay beat.wav) &
+          .venv/bin/python -m eve --test-capture 12 | tee capture_ubuntu.json
+
+      - name: App smoke test (demo) with screenshot
+        env:
+          PYTHONPATH: src
+          EVE_HOME: ${{ runner.temp }}/evehome
+        run: .venv/bin/python -m eve --demo --smoke-test 8 --screenshot ubuntu_frame.png | tee smoke_ubuntu.json
+
+      - name: PyInstaller build
+        run: |
+          .venv/bin/python scripts/build_ubuntu.py
+          EVE_HOME="$RUNNER_TEMP/evehome2" dist/ProjectEVE/ProjectEVE --demo --smoke-test 5 | tee smoke_ubuntu_packaged.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ubuntu-results
+          path: |
+            ubuntu_frame.png
+            smoke_ubuntu*.json
+            capture_ubuntu.json

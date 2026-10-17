@@ -28,6 +28,7 @@ from panda3d.core import (
     GeomVertexData,
     GeomVertexFormat,
     LMatrix4f,
+    Material,
     NodePath,
     TransparencyAttrib,
     Vec3,
@@ -89,6 +90,8 @@ class EveCharacter:
     def __init__(self, parent: NodePath, config: CharacterConfig | None = None) -> None:
         self.config = cfg = config or CharacterConfig()
         self.materials = build_materials(cfg)
+        self._material_nodes: list[tuple[NodePath, str]] = []
+        self.fixed_function = False
         meshes = geo.build_all(cfg)
 
         self.root = parent.attachNewNode("eve_root")
@@ -179,6 +182,7 @@ class EveCharacter:
     # -- materials ----------------------------------------------------------------------
     def _apply_material(self, node: NodePath, key: str, alpha: float = 1.0) -> None:
         spec: MaterialSpec = self.materials[key]
+        self._material_nodes.append((node, key))
         node.setShaderInput("u_base", _linear(spec.base_color))
         node.setShaderInput("u_params", Vec4(spec.specular, spec.shininess, spec.rim, spec.wrap))
         node.setShaderInput("u_emission", _linear(spec.emission) * (1.6 if spec.unlit else 1.0))
@@ -193,6 +197,28 @@ class EveCharacter:
             )
             node.setAttrib(DepthWriteAttrib.make(DepthWriteAttrib.M_off))
             node.setBin("fixed", 10)
+
+    def use_fixed_function(self) -> None:
+        """Simplified look for GPUs/drivers without GLSL (and the software rasteriser):
+        flat material colours with Panda's built-in lighting; glows and the soft shadow
+        need blending tricks the fallback does not do, so they are hidden."""
+        self.fixed_function = True
+        for node, key in self._material_nodes:
+            spec = self.materials[key]
+            if spec.translucent:
+                node.hide()
+                continue
+            color = spec.emission if spec.unlit else spec.base_color
+            node.setColor(color[0], color[1], color[2], 1.0, 1)
+            if spec.unlit:
+                node.setLightOff(1)
+            else:
+                material = Material()
+                material.setDiffuse((1.0, 1.0, 1.0, 1.0))
+                material.setAmbient((1.0, 1.0, 1.0, 1.0))
+                material.setSpecular((spec.specular,) * 3 + (1.0,))
+                material.setShininess(min(128.0, spec.shininess))
+                node.setMaterial(material, 1)
 
     # -- pose ---------------------------------------------------------------------------
     def apply_pose(self, pose: np.ndarray) -> None:

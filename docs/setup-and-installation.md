@@ -29,8 +29,11 @@ errors, and return the exit code.
    (Windows), `sudo apt-get install python3 python3-venv` (Ubuntu; explains why sudo is
    needed). Otherwise it prints exact manual instructions and stops.
 3. **Check system requirements** — macOS ≥ 13 for native capture; on Linux the shared
-   libraries Qt/Panda3D/SoundCard need (`libxcb-cursor0`, `libpulse0`, `libgl1`,
-   `libegl1`, `libxkbcommon0`).
+   libraries Qt/Panda3D/SoundCard need (`libxcb-cursor0`, `libxkbcommon-x11-0`,
+   `libxcb-icccm4`, `libxcb-keysyms1`, `libxkbcommon0`, `libpulse0`, `libgl1`, `libegl1`).
+   If any are missing and `apt-get` exists, it shows the exact
+   `sudo apt-get install -y …` command and asks before running it. On Windows it warns
+   when a deep project folder could hit the 260-character path limit.
 4. **Create `.venv`** inside the project (no admin rights, nothing global).
 5. **Install dependencies** from `requirements.txt` (exact pins incl. transitive deps).
    Progress advances per package pip resolves.

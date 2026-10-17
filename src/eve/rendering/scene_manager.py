@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import math
 
-from panda3d.core import Camera, NodePath, PerspectiveLens, Shader
+from panda3d.core import AmbientLight, Camera, DirectionalLight, NodePath, PerspectiveLens, Point3, Shader
 
 from eve.rendering import shaders
 from eve.rendering.render_settings import VIEW_HEIGHT, RenderSettings
@@ -43,6 +43,26 @@ class SceneManager:
         self.lens.setFov(hfov, fov)
         self.camera.setPos(0.0, -distance, FRAME_CENTER_Z)
         self.camera.lookAt(0.0, 0.0, FRAME_CENTER_Z)
+
+    def use_fixed_function_lighting(self) -> None:
+        """Fallback when GLSL is unavailable: Panda's built-in lights approximate the
+        shader's key/fill/ambient setup (attached to the camera, like the shader's
+        view-space lights)."""
+        self.scene.setShaderOff(100)
+        ambient = AmbientLight("ambient")
+        ambient.setColor((0.34, 0.35, 0.38, 1.0))
+        key = DirectionalLight("key")
+        key.setColor((0.95, 0.93, 0.9, 1.0))
+        key.setSpecularColor((0.9, 0.9, 0.9, 1.0))
+        fill = DirectionalLight("fill")
+        fill.setColor((0.32, 0.36, 0.45, 1.0))
+        for light in (ambient, key, fill):
+            node = self.camera.attachNewNode(light)
+            if light is key:
+                node.lookAt(Point3(0.55, 1.0, -0.6))
+            elif light is fill:
+                node.lookAt(Point3(-0.85, 1.0, -0.05))
+            self.scene.setLight(node)
 
     def set_aspect(self, width: int, height: int) -> None:
         self._frame(width / max(1, height))
