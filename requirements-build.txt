@@ -1,0 +1,3 @@
+# Packaging tooling (installed on demand by scripts/build_app.py).
+-r requirements.txt
+pyinstaller==6.22.3

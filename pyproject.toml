@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-eve"
+version = "0.1.0"
+description = "A floating desktop robot companion that dances to the music playing on your computer."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Project EVE contributors" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+]
+# Exact pins live in requirements.txt (the launcher installs from there).
+dependencies = [
+    "numpy>=2.0",
+    "PySide6-Essentials>=6.8",
+    "panda3d>=1.10.15",
+    "SoundCard>=0.4.3",
+    "pyobjc-framework-ScreenCaptureKit>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-CoreMedia>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+project-eve = "eve.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-q"
+markers = [
+    "gui: needs a display / Qt platform plugin",
+    "render: needs an OpenGL-capable display for Panda3D offscreen rendering",
+    "system_audio: needs real OS system-audio capture (manual / platform-specific)",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "setup", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = [
+    "RUF001", # ambiguous unicode in strings (progress glyphs are intentional)
+    "RUF002",
+    "RUF003",
+    "SIM105",
+    "SIM108", # explicit if/else reads better for the piecewise curves
+    "RUF005", # list concatenation is clearer for subprocess argument lists
+    "RUF046", # int(round(x)) is intentional for numpy scalars
+]
+
+[tool.ruff.lint.per-file-ignores]
+"setup/*" = ["UP"] # the bootstrap must stay runnable on older Pythons to report errors
+"tests/*" = ["RUF007", "RUF012", "RUF059"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/eve"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["eve.audio.platforms.*", "eve.rendering.panda3d_renderer", "eve.character.eve_character", "eve.rendering.scene_manager"]
+# Third-party native bindings (PyObjC, Panda3D, SoundCard) are untyped.
+disallow_incomplete_defs = false
