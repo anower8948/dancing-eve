@@ -69,6 +69,7 @@ def _configure_panda() -> None:
 
 SOFTWARE_MODULE = "p3tinydisplay"  # CPU rasteriser shipped in the Panda3D wheel
 HOSTED_GL = "opengl-with-host-window"  # default GL pipe, buffer hosted by a hidden 1x1 window
+MIN_TEST_COVERAGE = 0.02  # the robot covers ~19–28 % of the frame; less means a broken buffer
 
 
 def pipe_candidates(platform: str | None = None, env: dict[str, str] | None = None) -> list[str | None]:
@@ -142,12 +143,20 @@ class Panda3DRenderer(CharacterRenderer):
                 problems.append(f"{label}: graphics context is not valid")
                 self._release_buffer()
                 continue
-            if not gsg.getSupportsGlsl():
+            if not gsg.getSupportsGlsl() and not self.simplified_shading:
                 # Old/virtual GL (e.g. GDI OpenGL 1.1 over Remote Desktop) or the software
                 # rasteriser: no shaders, so use simplified fixed-function shading.
                 self.simplified_shading = True
                 self.scene.use_fixed_function_lighting()
                 self.character.use_fixed_function()
+            # Trust nothing until a test frame actually shows the robot: some drivers hand
+            # out buffers that "work" but stay blank.
+            coverage = self._test_frame_coverage()
+            if coverage < MIN_TEST_COVERAGE:
+                problems.append(f"{label}: test frame was blank (coverage {coverage:.1%})")
+                self._release_buffer()
+                self._release_host()
+                continue
             break
         else:
             raise RuntimeError("no usable renderer — " + "; ".join(problems))
@@ -189,6 +198,18 @@ class Panda3DRenderer(CharacterRenderer):
         window.requestProperties(hide)
         return window
 
+    def _test_frame_coverage(self) -> float:
+        """Fraction of pixels the robot covers in a neutral-pose test frame."""
+        from eve.character.character_rig import neutral_pose
+
+        try:
+            frame = self.render(neutral_pose())
+            frame = self.render(neutral_pose())  # some drivers deliver the first copy late
+        except Exception:
+            log.exception("test frame failed")
+            return 0.0
+        return float((frame.pixels[..., 3] > 0).mean())
+
     def _release_host(self) -> None:
         if self._engine is not None and self._host is not None:
             self._engine.removeWindow(self._host)
@@ -222,7 +243,9 @@ class Panda3DRenderer(CharacterRenderer):
                 -2,
                 props,
                 WindowProperties.size(width, height),
-                GraphicsPipe.BF_refuse_window,
+                # A "parasite" buffer draws into the host window instead of offscreen;
+                # its RAM copy is blank, so it is never acceptable here.
+                GraphicsPipe.BF_refuse_window | GraphicsPipe.BF_refuse_parasite,
                 gsg,
                 host,
             )
