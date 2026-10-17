@@ -81,12 +81,13 @@ def test_wayland_prefers_xwayland_when_available(monkeypatch) -> None:
 
 
 def test_renderer_fallback_order() -> None:
-    from eve.rendering.panda3d_renderer import SOFTWARE_MODULE, pipe_candidates
+    from eve.rendering.panda3d_renderer import HOSTED_GL, SOFTWARE_MODULE, pipe_candidates
 
-    assert pipe_candidates("darwin", {}) == [None, SOFTWARE_MODULE]
-    assert pipe_candidates("win32", {}) == [None, SOFTWARE_MODULE]
-    assert pipe_candidates("linux", {}) == [None, "p3headlessgl", SOFTWARE_MODULE]
+    assert pipe_candidates("darwin", {}) == [None, HOSTED_GL, SOFTWARE_MODULE]
+    assert pipe_candidates("win32", {}) == [None, HOSTED_GL, SOFTWARE_MODULE]
+    assert pipe_candidates("linux", {}) == [None, HOSTED_GL, "p3headlessgl", SOFTWARE_MODULE]
     assert pipe_candidates("linux", {"EVE_RENDERER": "software"}) == [SOFTWARE_MODULE]
+    assert pipe_candidates("win32", {"EVE_RENDERER": "hosted"}) == [HOSTED_GL]
 
 
 def test_missing_linux_packages_are_reported_by_package_name() -> None:

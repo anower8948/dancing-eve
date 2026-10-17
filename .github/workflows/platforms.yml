@@ -35,11 +35,29 @@ jobs:
           .venv\Scripts\python -m pip install -q -r requirements-dev.txt
           .venv\Scripts\python -m pytest -o addopts="" -q
 
+      # The runner has no sound card; VB-CABLE (installed by this helper) adds a virtual
+      # output device so WASAPI loopback capture can be tested for real.
+      - name: Virtual sound card (VB-CABLE)
+        uses: LABSN/sound-ci-helpers@d08c889a7bba7d9b1b059f8f76dac4672ea3a9cf # v1.0.4
+
       - name: Audio diagnostics (WASAPI)
         shell: pwsh
         env:
           PYTHONPATH: src
         run: .venv\Scripts\python -m eve --diagnose-audio
+
+      - name: Real WASAPI loopback capture while audio plays
+        shell: pwsh
+        env:
+          PYTHONPATH: src
+        run: |
+          .venv\Scripts\python tests\platform\make_beat_wav.py beat.wav
+          $wav = Join-Path $PWD "beat.wav"
+          $player = Start-Job -ScriptBlock { param($f) Start-Sleep 2; (New-Object Media.SoundPlayer $f).PlaySync() } -ArgumentList $wav
+          .venv\Scripts\python -m eve --test-capture 14 | Tee-Object capture_windows.json
+          $code = $LASTEXITCODE
+          Receive-Job $player -Wait -AutoRemoveJob
+          exit $code
 
       - name: App smoke test (demo) with screenshot
         shell: pwsh
@@ -62,6 +80,7 @@ jobs:
           path: |
             windows_frame.png
             smoke_windows*.json
+            capture_windows.json
             dist/ProjectEVE/
 
   ubuntu:
@@ -99,9 +118,9 @@ jobs:
 
       - name: Real capture from the PulseAudio monitor
         env:
-          PYTHONPATH: src:.
+          PYTHONPATH: src
         run: |
-          .venv/bin/python -c "import numpy as np, wave; from tests.fixtures import synthetic_audio as sa; x=sa.beat_track(14, bpm=120, amp=0.6); w=wave.open('beat.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000); w.writeframes((np.clip(x,-1,1)*32767).astype(np.int16).tobytes()); w.close()"
+          .venv/bin/python tests/platform/make_beat_wav.py beat.wav
           (sleep 1; paplay beat.wav) &
           .venv/bin/python -m eve --test-capture 12 | tee capture_ubuntu.json
 

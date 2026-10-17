@@ -24,8 +24,23 @@ BLOCK_FRAMES = 1024
 DEFAULT_CHECK_INTERVAL = 2.0
 
 
+def import_soundcard() -> Any:
+    """Import SoundCard *before* touching COM in the calling thread.
+
+    On Windows SoundCard initialises COM itself when it is first imported and treats
+    S_FALSE ("already initialised in this thread") as a fatal error, so importing it in a
+    thread where we had already called CoInitializeEx made the whole backend unavailable
+    (seen on GitHub's Windows runner: "Error 0x100000001").
+    """
+    import soundcard
+
+    return soundcard
+
+
 def com_initialize() -> None:
-    """WASAPI is COM-based: every thread that touches it needs COM initialised (MTA)."""
+    """WASAPI is COM-based: every thread that touches it needs COM initialised (MTA).
+    Call after ``import_soundcard()``; a repeated initialisation returns S_FALSE, which is
+    fine here and is balanced by ``com_uninitialize()``."""
     if sys.platform.startswith("win"):
         import ctypes
 
@@ -47,6 +62,11 @@ def run_in_com_thread(func: Callable[[], Any], timeout: float = 10.0) -> Any:
     result: dict[str, Any] = {}
 
     def target() -> None:
+        try:
+            import_soundcard()
+        except BaseException as exc:
+            result["error"] = exc
+            return
         com_initialize()
         try:
             result["value"] = func()
@@ -89,7 +109,7 @@ class SoundCardBackend(AudioCaptureBackend):
     @classmethod
     def availability(cls) -> tuple[bool, str]:
         try:
-            run_in_com_thread(lambda: __import__("soundcard"))
+            run_in_com_thread(import_soundcard)
         except Exception as exc:  # missing libpulse, broken install, ...
             return False, f"SoundCard library unavailable: {exc}"
         return True, ""
@@ -142,11 +162,14 @@ class SoundCardBackend(AudioCaptureBackend):
         return devices[0]
 
     def _run(self, source_id: str | None) -> None:
+        try:
+            sc = import_soundcard()
+        except Exception as exc:
+            self._set_status(CaptureStatus.UNSUPPORTED, f"SoundCard library unavailable: {exc}")
+            return
         com_initialize()
         try:
             import warnings
-
-            import soundcard as sc
 
             # Windows reports harmless "data discontinuity" glitches as warnings; they would
             # flood the log during long sessions.

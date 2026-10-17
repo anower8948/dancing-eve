@@ -15,6 +15,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from panda3d.core import (
@@ -67,20 +68,28 @@ def _configure_panda() -> None:
 
 
 SOFTWARE_MODULE = "p3tinydisplay"  # CPU rasteriser shipped in the Panda3D wheel
+HOSTED_GL = "opengl-with-host-window"  # default GL pipe, buffer hosted by a hidden 1x1 window
 
 
 def pipe_candidates(platform: str | None = None, env: dict[str, str] | None = None) -> list[str | None]:
     """Display modules to try, best first. ``None`` = Panda's default (OpenGL).
 
+    * Some drivers (notably on Windows) only create offscreen OpenGL buffers that share a
+      context with a real window, so the next attempt hosts the buffer on a hidden 1×1
+      window.
     * Linux adds headless EGL (works without an X server, e.g. pure Wayland or SSH).
     * Everyone falls back to the software rasteriser (VMs, Remote Desktop sessions with
-      only GDI OpenGL 1.1, broken drivers). ``EVE_RENDERER=software`` forces it.
+      only GDI OpenGL 1.1, broken drivers). ``EVE_RENDERER=software`` forces it;
+      ``EVE_RENDERER=hosted`` forces the hosted attempt (for testing).
     """
     platform = platform or sys.platform
     env = dict(os.environ) if env is None else env
-    if env.get("EVE_RENDERER", "").lower() == "software":
+    forced = env.get("EVE_RENDERER", "").lower()
+    if forced == "software":
         return [SOFTWARE_MODULE]
-    candidates: list[str | None] = [None]
+    if forced == "hosted":
+        return [HOSTED_GL]
+    candidates: list[str | None] = [None, HOSTED_GL]
     if platform.startswith("linux"):
         candidates.append("p3headlessgl")
     candidates.append(SOFTWARE_MODULE)
@@ -93,13 +102,15 @@ class Panda3DRenderer(CharacterRenderer):
         self.character_config = character or CharacterConfig()
         self._engine: GraphicsEngine | None = None
         self._pipe = None
-        self._buffer = None
+        self._buffer: Any = None
         self._texture: Texture | None = None
         self.scene: SceneManager | None = None
         self.character: EveCharacter | None = None
         self._frame: np.ndarray | None = None
         self.width = self.height = 0
         self.simplified_shading = False  # True when the GPU/driver has no GLSL
+        self._hosted = False
+        self._host: Any = None  # hidden host window for drivers that need one
         self._description = "Panda3D (not initialised)"
 
     # -- lifecycle ------------------------------------------------------------------------
@@ -112,7 +123,9 @@ class Panda3DRenderer(CharacterRenderer):
         problems: list[str] = []
         for module in pipe_candidates():
             label = module or "default OpenGL"
-            pipe = selection.makeDefaultPipe() if module is None else selection.makeModulePipe(module)
+            self._hosted = module == HOSTED_GL
+            default = module in (None, HOSTED_GL)
+            pipe = selection.makeDefaultPipe() if default else selection.makeModulePipe(module)
             if pipe is None:
                 problems.append(f"{label}: no graphics pipe")
                 continue
@@ -121,6 +134,7 @@ class Panda3DRenderer(CharacterRenderer):
                 self._create_buffer(width, height)
             except RuntimeError as exc:
                 problems.append(f"{label}: {exc}")
+                self._release_host()
                 continue
             self._engine.renderFrame()  # initialises the GSG so its capabilities are known
             gsg = self._buffer.getGsg() if self._buffer is not None else None
@@ -153,6 +167,33 @@ class Panda3DRenderer(CharacterRenderer):
         self._description = f"Panda3D {interface} — {details}{shading}"
         log.info("renderer: %s", self._description)
 
+    def _make_host_window(self) -> Any:
+        """A hidden, undecorated 1×1 window far off-screen whose GL context hosts the buffer."""
+        assert self._engine is not None
+        props = WindowProperties.size(1, 1)
+        props.setUndecorated(True)
+        props.setOrigin(-30000, -30000)
+        props.setForeground(False)
+        props.setTitle("Project EVE renderer")
+        fbp = FrameBufferProperties()
+        fbp.setRgbaBits(8, 8, 8, 8)
+        fbp.setDepthBits(24)
+        window = self._engine.makeOutput(
+            self._pipe, "eve-host", -10, fbp, props, GraphicsPipe.BF_require_window | GraphicsPipe.BF_fb_props_optional
+        )
+        if window is None:
+            raise RuntimeError("could not open a hidden host window")
+        self._engine.openWindows()
+        hide = WindowProperties()
+        hide.setMinimized(True)
+        window.requestProperties(hide)
+        return window
+
+    def _release_host(self) -> None:
+        if self._engine is not None and self._host is not None:
+            self._engine.removeWindow(self._host)
+        self._host = None
+
     def _release_buffer(self) -> None:
         if self._engine is not None and self._buffer is not None:
             self._engine.removeWindow(self._buffer)
@@ -167,20 +208,30 @@ class Panda3DRenderer(CharacterRenderer):
         fbp.setDepthBits(24)
         if self.settings.multisamples > 0:
             fbp.setMultisamples(self.settings.multisamples)
-        buffer = self._engine.makeOutput(
-            self._pipe, "eve-offscreen", -2, fbp, WindowProperties.size(width, height), GraphicsPipe.BF_refuse_window
-        )
-        if buffer is None and self.settings.multisamples > 0:
-            log.warning("MSAA offscreen buffer unavailable; retrying without antialiasing")
-            fbp.setMultisamples(0)
-            buffer = self._engine.makeOutput(
+        if self._hosted and self._host is None:
+            self._host = self._make_host_window()
+        host = self._host if self._hosted else None
+        gsg = host.getGsg() if host is not None else None
+
+        engine = self._engine
+
+        def make(props: FrameBufferProperties) -> Any:
+            return engine.makeOutput(
                 self._pipe,
                 "eve-offscreen",
                 -2,
-                fbp,
+                props,
                 WindowProperties.size(width, height),
                 GraphicsPipe.BF_refuse_window,
+                gsg,
+                host,
             )
+
+        buffer = make(fbp)
+        if buffer is None and self.settings.multisamples > 0:
+            log.warning("MSAA offscreen buffer unavailable; retrying without antialiasing")
+            fbp.setMultisamples(0)
+            buffer = make(fbp)
         if buffer is None:
             raise RuntimeError("Panda3D could not create an offscreen buffer")
         texture = Texture("eve-frame")
@@ -207,6 +258,7 @@ class Panda3DRenderer(CharacterRenderer):
         if self._engine is not None and self._buffer is not None:
             self._engine.removeWindow(self._buffer)
             self._engine.renderFrame()  # lets Panda release GL objects
+        self._release_host()
         self._buffer = None
         self._texture = None
         if self.scene is not None:
