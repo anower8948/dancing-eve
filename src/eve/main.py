@@ -28,6 +28,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--size", type=int, help="character window height in pixels (this run only)")
     parser.add_argument("--fps", type=int, help="target frame rate (this run only)")
+    parser.add_argument("--style", choices=("mixed", "dreamers"), help="dance style (this run only)")
     parser.add_argument("--diagnose-audio", action="store_true", help="list capture backends/sources and exit")
     parser.add_argument(
         "--test-capture", type=float, metavar="SECONDS", help="capture real system audio for N seconds, report, exit"
@@ -125,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
         smoke_test=args.smoke_test,
         size=max(140, min(560, args.size)) if args.size else None,
         fps=max(15, min(120, args.fps)) if args.fps else None,
+        style=args.style,
         screenshot=args.screenshot,
     )
     app = EveApplication(qapp, options, paths, store, settings)

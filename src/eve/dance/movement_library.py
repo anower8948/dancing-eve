@@ -64,6 +64,7 @@ class Movement:
     reduced_motion_ok: bool = True
     half_time_ok: bool = False  # may run at half speed in calm passages
     blend_in: float = 0.45  # crossfade seconds when this movement starts
+    style: str = ""  # optional dance-style family (see DANCE_STYLES)
 
     def evaluate(self, ctx: MoveContext, out: np.ndarray) -> np.ndarray:
         out.fill(0.0)
@@ -553,6 +554,148 @@ def _star_burst(c: MoveContext, out: np.ndarray) -> None:
     out[Ch.EYE_GLOW] = 0.5 * star
 
 
+# ---------------------------------------------------------------------------------------
+# "Dreamers" style — original moves inspired by the celebratory, stadium-anthem feel of
+# "Dreamers", the FIFA World Cup Qatar 2022 song. Not a reproduction of the opening-ceremony
+# choreography: gestures a floating robot with paddle arms can do — pointing to the sky,
+# a hand on the heart, reaching up, waving a flag, the stadium wave, a goal celebration.
+# ---------------------------------------------------------------------------------------
+def hold(b: float, start: float, attack: float, release: float, end: float) -> float:
+    """Plateau envelope: rise over [start, start+attack], hold, fall over [release, end]."""
+    return smootherstep(window(b, start, start + attack)) * (1.0 - smootherstep(window(b, release, end)))
+
+
+def _anthem_march(c: MoveContext, out: np.ndarray) -> None:
+    """Proud parade march: arms swing in opposition on every beat, a small step-bounce."""
+    a, d = c.amp, c.side
+    swing = math.sin(math.pi * c.beat)  # left forward, right back, then swap
+    # Forward swing is foreshortened from the front, so the swinging arm also lifts outward.
+    out[Ch.ARM_L_SWING] = 40.0 * a * swing * d
+    out[Ch.ARM_R_SWING] = -40.0 * a * swing * d
+    out[Ch.ARM_L_SPREAD] = 6.0 * a + 38.0 * a * max(0.0, swing * d)
+    out[Ch.ARM_R_SPREAD] = 6.0 * a + 38.0 * a * max(0.0, -swing * d)
+    out[Ch.ROOT_Z] = 0.045 * a * hop(c.phase)
+    out[Ch.ROOT_X] = 0.035 * a * swing * d
+    out[Ch.BODY_SQUASH] = -0.03 * a * max(0.0, -hop(c.phase))
+    out[Ch.BODY_R] = 6.0 * a * swing * d
+    out[Ch.HEAD_P] = -4.0 * a  # chin up
+    out[Ch.HEAD_R] = -3.0 * a * swing * d
+    out[Ch.ROOT_H] = 6.0 * a * swing * d
+    out[Ch.EYE_HAPPY] = 0.5
+
+
+def _sky_point(c: MoveContext, out: np.ndarray) -> None:
+    """Point to the sky — one arm snaps up on the beat, eyes follow; then the other arm."""
+    b, a, d = c.beat, c.amp, c.side
+    first = hold(b, 0.0, 0.35, 1.7, 2.1)
+    second = hold(b, 2.0, 0.35, 3.6, 4.0)
+    pump = 1.0 - 0.15 * (1.0 - skewed_wave(c.phase)) * 0.5  # small re-accent each beat
+    up = 150.0 * pump
+    _arms(out, d, 10.0 * first, up * first - 10.0 * second, 10.0 * second, up * second - 10.0 * first)
+    look = first - second
+    out[Ch.HEAD_P] = -14.0 * (first + second)
+    out[Ch.HEAD_H] = -12.0 * d * look
+    out[Ch.EYE_LOOK_Y] = 0.8 * (first + second)
+    out[Ch.EYE_LOOK_X] = 0.4 * d * look
+    out[Ch.BODY_R] = -6.0 * d * look
+    out[Ch.ROOT_Z] = 0.03 * a * skewed_wave(c.phase) + 0.03 * (first + second)
+    out[Ch.EYE_HAPPY] = 0.6
+    out[Ch.EYE_GLOW] = 0.2 * (first + second)
+
+
+def _heart_hand(c: MoveContext, out: np.ndarray) -> None:
+    """Hand on heart and a small bow — sweep the arm across the chest, bow, return."""
+    b, a, d = c.beat, c.amp, c.side
+    sweep = anticipate(window(b, 0.0, 0.8), amount=0.12) * (1.0 - smootherstep(window(b, 3.2, 4.0)))
+    bow = bell(window(b, 1.0, 3.2))
+    _arms(out, d, 72.0 * sweep, -38.0 * sweep + 6.0, 0.0, 12.0 * bow)
+    out[Ch.BODY_P] = 7.0 * bow
+    out[Ch.HEAD_P] = 10.0 * bow
+    out[Ch.ROOT_Z] = -0.02 * bow + 0.015 * a * skewed_wave(c.phase)
+    out[Ch.BODY_R] = 3.0 * d * sweep
+    out[Ch.EYE_HAPPY] = 0.9 * max(sweep, bow)
+    out[Ch.EYE_OPEN] = -0.15 * bow
+
+
+def _dream_reach(c: MoveContext, out: np.ndarray) -> None:
+    """Slowly rise and reach up and out with both arms, gazing upward ("we are the dreamers")."""
+    b, a, d = c.beat, c.amp, c.side
+    reach = smootherstep(window(b, 0.5, 3.0)) * (1.0 - smootherstep(window(b, 6.0, 8.0)))
+    sway = math.sin(math.pi * b / 2.0)
+    spread = (125.0 + 10.0 * sway * d) * reach
+    out[Ch.ARM_L_SPREAD] = spread
+    out[Ch.ARM_R_SPREAD] = (125.0 - 10.0 * sway * d) * reach
+    out[Ch.ARM_L_SWING] = 25.0 * reach
+    out[Ch.ARM_R_SWING] = 25.0 * reach
+    out[Ch.ROOT_Z] = 0.09 * max(a, 0.6) * reach
+    out[Ch.BODY_P] = -6.0 * reach
+    out[Ch.HEAD_P] = -12.0 * reach
+    out[Ch.BODY_R] = 4.0 * sway * reach * d
+    out[Ch.EYE_LOOK_Y] = 0.6 * reach
+    out[Ch.EYE_HAPPY] = 0.8 * reach
+    out[Ch.EYE_GLOW] = 0.35 * reach
+
+
+def _flag_wave(c: MoveContext, out: np.ndarray) -> None:
+    """Wave an imaginary flag overhead in big arcs, the other arm on the hip."""
+    a, d = c.amp, c.side
+    arc = math.sin(math.pi * c.beat)  # one sweep per beat
+    _arms(out, d, 15.0 + 25.0 * arc, 145.0 + 15.0 * arc, -25.0, -4.0)
+    out[Ch.BODY_R] = -8.0 * d + 4.0 * arc * d
+    out[Ch.HEAD_R] = 6.0 * d
+    out[Ch.HEAD_H] = -8.0 * d * arc
+    out[Ch.ROOT_Z] = 0.03 * a * hop(c.phase)
+    out[Ch.EYE_LOOK_X] = 0.35 * d
+    out[Ch.EYE_HAPPY] = 0.8
+
+
+def _stadium_wave(c: MoveContext, out: np.ndarray) -> None:
+    """The stadium wave: one arm rises, the body lifts, the other arm follows, then down."""
+    b, a, d = c.beat, c.amp, c.side
+    lead = hold(b, 0.0, 0.5, 1.6, 2.4)
+    follow = hold(b, 0.6, 0.5, 2.2, 3.0)
+    body = bell(window(b, 0.3, 2.8))
+    _arms(out, d, 10.0 * lead, 145.0 * lead, 10.0 * follow, 145.0 * follow)
+    out[Ch.ROOT_Z] = 0.08 * max(a, 0.6) * body + 0.02 * a * skewed_wave(c.phase)
+    out[Ch.BODY_SQUASH] = 0.04 * body
+    out[Ch.ROOT_X] = 0.06 * a * d * (lead - follow)
+    out[Ch.BODY_R] = -7.0 * d * (lead - follow)
+    out[Ch.HEAD_P] = -8.0 * body
+    out[Ch.EYE_HAPPY] = 0.9 * body
+    out[Ch.EYE_LOOK_X] = -0.4 * d * (lead - follow)
+
+
+def _victory_jump(c: MoveContext, out: np.ndarray) -> None:
+    """Goal celebration: crouch, jump with both arms up in a V, glow, land with a shake."""
+    b, a = c.beat, c.amp
+    crouch = bell(window(b, 0.0, 1.0))
+    jump = smootherstep(window(b, 0.9, 1.4)) * (1.0 - smootherstep(window(b, 3.6, 4.6)))
+    shake = math.sin(4.0 * TAU * b) * bell(window(b, 4.4, 6.0))
+    out[Ch.ROOT_Z] = -0.07 * crouch + 0.16 * max(a, 0.7) * jump
+    out[Ch.BODY_SQUASH] = -0.07 * crouch + 0.06 * jump * bell(window(b, 0.9, 2.2))
+    v = 140.0 * jump + 20.0 * bell(window(b, 0.0, 0.9))
+    out[Ch.ARM_L_SPREAD] = v
+    out[Ch.ARM_R_SPREAD] = v
+    out[Ch.ARM_L_SWING] = 15.0 * jump
+    out[Ch.ARM_R_SWING] = 15.0 * jump
+    out[Ch.BODY_P] = 6.0 * crouch - 8.0 * jump
+    out[Ch.HEAD_P] = 6.0 * crouch - 12.0 * jump
+    out[Ch.BODY_R] = 8.0 * shake
+    out[Ch.HEAD_R] = -6.0 * shake
+    out[Ch.EYE_OPEN] = 0.25 * jump
+    out[Ch.EYE_HAPPY] = 1.0 - 0.6 * jump
+    out[Ch.EYE_GLOW] = 0.5 * jump
+
+
+DANCE_STYLES = {
+    "mixed": "Mixed — every move",
+    "dreamers": "Dreamers — stadium anthem (inspired by the Qatar 2022 World Cup song)",
+}
+# Signature sequence played now and then when a style is selected.
+ROUTINES: dict[str, tuple[str, ...]] = {
+    "dreamers": ("anthem_march", "sky_point", "heart_hand", "stadium_wave", "dream_reach"),
+}
+
 C, G, E, F = DanceState.CALM, DanceState.GROOVE, DanceState.ENERGETIC, DanceState.FLOURISH
 
 
@@ -585,5 +728,13 @@ def build_library() -> dict[str, Movement]:
         Movement("shimmy", 2, _shimmy, {G: 1.0, E: 1.8}, (0.5, 1.0), 4.0, True, False, 0.3),
         Movement("dip_and_rise", 4, _dip_and_rise, {G: 1.2, E: 1.0}, (0.4, 1.0), 10.0, True, False, 0.5),
         Movement("star_burst", 6, _star_burst, {F: 1.0}, (0.0, 1.0), 0.0, False, False, 0.4),
+        # Dreamers style
+        Movement("anthem_march", 4, _anthem_march, {G: 1.0, E: 0.8}, (0.3, 1.0), 4.0, True, False, 0.4, "dreamers"),
+        Movement("sky_point", 4, _sky_point, {G: 1.0, E: 1.0}, (0.35, 1.0), 6.0, True, False, 0.4, "dreamers"),
+        Movement("heart_hand", 4, _heart_hand, {C: 1.0, G: 0.8}, (0.0, 0.8), 8.0, True, True, 0.6, "dreamers"),
+        Movement("dream_reach", 8, _dream_reach, {C: 1.0, G: 0.8}, (0.0, 0.8), 12.0, True, True, 0.8, "dreamers"),
+        Movement("flag_wave", 4, _flag_wave, {G: 0.8, E: 1.0}, (0.4, 1.0), 6.0, True, False, 0.4, "dreamers"),
+        Movement("stadium_wave", 4, _stadium_wave, {G: 0.9, E: 1.0}, (0.4, 1.0), 8.0, True, False, 0.4, "dreamers"),
+        Movement("victory_jump", 6, _victory_jump, {F: 1.0}, (0.0, 1.0), 0.0, False, False, 0.4, "dreamers"),
     ]
     return {m.name: m for m in moves}

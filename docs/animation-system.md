@@ -76,9 +76,9 @@ different axis convention, adjust `ROLL_SIGN`/`PITCH_SIGN` in `eve_character.py`
   0.15 if it was the previous move × cooldown gate; random side mirroring (70 % alternate);
   ±10 % amplitude jitter; half-time in calm passages above 105 BPM.
 * **Phrases**: 40 % of picks of short moves (≤ 4 beats, cooldown < 8 s) start a phrase —
-  patterns `AB`, `ABA`, `BbA`, `AaB` after the opening move, where `A` repeats the move
-  mirrored (call and response), `a` repeats it on the same side, `B`/`b` is a
-  contrasting move. A phrase is abandoned when the dance state changes.
+  patterns `AB`, `ABA`, `BbA`, `BA` after the opening move, where `A` repeats the move
+  mirrored (call and response), `B`/`b` is a contrasting move (and its mirror). A move
+  never plays more than twice in a row. A phrase is abandoned when the dance state changes.
 * **Expressions**: wide eyes (EYE_OPEN up to 1.3) and a head lift for 0.9 s on a surge;
   happy arcs per move; sleepy after 45 s without dancing (ramping over 30 s: heavy lids,
   slow blinks, sinking, nodding off, no glances; the app drops to 15 FPS), waking quickly
@@ -90,6 +90,30 @@ different axis convention, adjust `ROLL_SIGN`/`PITCH_SIGN` in `eve_character.py`
   running, angles blended on the shortest arc.
 
 Measured: dance + animation update ≈ 0.07 ms per frame.
+
+## Dance styles
+
+Settings → Dancing → **Dance style** (or `--style dreamers` for one run) selects a family
+of moves. A style multiplies its own moves' selection weight by 5 and halves everything
+else, so the style dominates without becoming monotonous, and occasionally (30 % of
+picks, at most every 45 s) plays its **signature routine**.
+
+| Style | Moves | Signature routine |
+|---|---|---|
+| `mixed` (default) | all 34 moves | — |
+| `dreamers` | anthem_march, sky_point, heart_hand, dream_reach, flag_wave, stadium_wave, victory_jump (flourish) | anthem_march → sky_point → heart_hand → stadium_wave → dream_reach (the moves valid in the current state) |
+
+**Dreamers** is inspired by the celebratory stadium-anthem feel of "Dreamers", the FIFA
+World Cup Qatar 2022 song: marching with pride, pointing to the sky, a hand on the heart
+with a small bow, reaching up "for the dream", waving a flag, the stadium wave, and a
+goal-celebration jump on musical drops. It is original choreography for a floating
+robot with paddle arms — not a reproduction of the opening-ceremony performance.
+Arms-up gestures use *spread* above 90° (readable from the front); the hand-on-heart
+uses negative spread (arm across the chest, limit −40°).
+
+To add a style: tag moves with `style="name"` in `build_library()`, add the key to
+`DANCE_STYLES` (and `eve.config.CHOICES["dance_style"]`), optionally add a routine to
+`ROUTINES`.
 
 ## Adding a movement
 

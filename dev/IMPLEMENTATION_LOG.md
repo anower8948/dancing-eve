@@ -1,5 +1,22 @@
 # Implementation log
 
+## 2026-10-17 — Session 4 ("Dreamers" style)
+
+* 7 original moves inspired by the Qatar 2022 anthem's stadium feel (no access to the
+  performance video; not a copy of its choreography). Arm spread lower limit −4° → −40°
+  so an arm can cross the chest (hand on heart); pose sheet confirmed it reads.
+* Dance-style system: `Movement.style`, `DanceSettings.style`, Choreographer weighting
+  (×5 style / ×0.5 others) and signature routines; `dance_style` setting (validated
+  choices), Settings combo, `--style` per-run flag; debug log line per chosen move.
+* Pose-sheet review: bell envelopes never let the springs reach raised-arm targets →
+  `hold()` plateau envelopes; march arms swung toward the viewer (invisible) → added
+  outward lift and side step. Manually played moves fade in 3× faster (previews from
+  idle showed half-size gestures).
+* Found in a 60 s style run: a phrase pattern could play one move three times in a row →
+  pattern "AaB" replaced by "BA", plus a test. mypy caught the settings combo named
+  `self.style`, which shadowed `QWidget.style()`.
+* 172 tests pass; ruff + mypy clean.
+
 ## 2026-10-17 — Session 3 (Windows/Linux compatibility)
 
 * Docker (OrbStack) available → `tests/platform/ubuntu.Dockerfile` +

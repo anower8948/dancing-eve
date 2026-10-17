@@ -37,9 +37,9 @@ SPECS: dict[Ch, ChannelSpec] = {
     Ch.HEAD_R: ChannelSpec(-30.0, 30.0, 2.4, 0.5, 420.0),
     Ch.HEAD_LIFT: ChannelSpec(-0.03, 0.09, 3.4, 0.42, 1.0),
     Ch.ARM_L_SWING: ChannelSpec(-60.0, 115.0, 1.9, 0.4, 600.0),
-    Ch.ARM_L_SPREAD: ChannelSpec(-4.0, 165.0, 1.9, 0.4, 600.0),  # >90 = raised overhead
+    Ch.ARM_L_SPREAD: ChannelSpec(-40.0, 165.0, 1.9, 0.4, 600.0),  # >90 = overhead, <0 = across the chest
     Ch.ARM_R_SWING: ChannelSpec(-60.0, 115.0, 1.9, 0.4, 600.0),
-    Ch.ARM_R_SPREAD: ChannelSpec(-4.0, 165.0, 1.9, 0.4, 600.0),
+    Ch.ARM_R_SPREAD: ChannelSpec(-40.0, 165.0, 1.9, 0.4, 600.0),
     Ch.EYE_OPEN: ChannelSpec(0.0, 1.3, 9.0, 1.0, 30.0),  # >1 = wide-eyed surprise
     Ch.EYE_HAPPY: ChannelSpec(0.0, 1.0, 3.5, 0.9, 8.0),
     Ch.EYE_LOOK_X: ChannelSpec(-1.0, 1.0, 6.5, 0.85, 12.0),

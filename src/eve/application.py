@@ -62,6 +62,7 @@ class AppOptions:
     screenshot: str | None = None  # save the last frame here when quitting (smoke test)
     size: int | None = None  # --size: this run only, never saved
     fps: int | None = None  # --fps: this run only, never saved
+    style: str | None = None  # --style: this run only, never saved
 
 
 class EveApplication(QObject):
@@ -86,7 +87,9 @@ class EveApplication(QObject):
             self.capture = CaptureManager(self.buffer)
         self.worker = AnalyzerWorker(self.buffer, settings.sensitivity)
         self.demo = DemoMusicSource() if options.demo else None
-        self.dance = DanceController(DanceSettings(settings.dance_intensity, settings.reduced_motion))
+        self.dance = DanceController(
+            DanceSettings(settings.dance_intensity, settings.reduced_motion, options.style or settings.dance_style)
+        )
         self.animation = AnimationController(reduced_motion=settings.reduced_motion)
         self.renderer = Panda3DRenderer(RenderSettings(show_shadow=settings.show_shadow))
         self.window = CompanionWindow(self)
@@ -346,6 +349,8 @@ class EveApplication(QObject):
             self.worker.set_sensitivity(s.sensitivity)
         elif name == "dance_intensity":
             self.dance.settings.intensity = s.dance_intensity
+        elif name == "dance_style":
+            self.dance.settings.style = s.dance_style
         elif name == "reduced_motion":
             self.dance.settings.reduced_motion = s.reduced_motion
             self.animation.set_reduced_motion(s.reduced_motion)
@@ -394,6 +399,7 @@ class EveApplication(QObject):
         for name in (
             "sensitivity",
             "dance_intensity",
+            "dance_style",
             "reduced_motion",
             "character_size",
             "always_on_top",

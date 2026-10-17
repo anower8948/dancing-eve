@@ -98,3 +98,12 @@ def test_reset_keeps_backup(tmp_path: Path) -> None:
     assert store.reset() == Settings()
     assert list(tmp_path.glob("settings.before-reset-*.json"))
     assert SettingsStore(path).load() == Settings()
+
+
+def test_dance_style_choices_match_the_library() -> None:
+    from eve.config import CHOICES
+    from eve.dance.movement_library import DANCE_STYLES
+
+    assert set(CHOICES["dance_style"]) == set(DANCE_STYLES)
+    assert validate({"dance_style": "dreamers"})[0].dance_style == "dreamers"
+    assert validate({"dance_style": "salsa"})[0].dance_style == "mixed"

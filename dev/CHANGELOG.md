@@ -3,6 +3,9 @@
 ## 0.2.0 — 2026-10-17 (unreleased)
 
 ### Added
+- "Dreamers" dance style (inspired by the FIFA World Cup Qatar 2022 anthem): 7 original
+  moves — anthem_march, sky_point, heart_hand, dream_reach, flag_wave, stadium_wave and a
+  victory_jump flourish — plus a signature routine; Settings → Dance style or `--style`.
 - 14 new dance moves (27 total), including a second flourish.
 - Call-and-response phrases (a move, its mirror, a contrast, a return).
 - Wide-eyed surprise on musical drops; sleepy mode after a long silence; bolder happy eyes.

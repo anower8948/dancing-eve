@@ -34,6 +34,9 @@ Details: [docs/setup-and-installation.md](docs/setup-and-installation.md).
 * Settings: sensitivity, dance intensity, reduced motion, size, always on top,
   click-through, power saving, shadow, debug panel (live analysis values and a
   "Play move" tester), reset preferences.
+* **Dance style:** *Mixed* (all 34 moves) or *Dreamers* — moves inspired by the Qatar
+  2022 World Cup anthem (pointing to the sky, hand on heart, flag waving, the stadium
+  wave, a goal-celebration jump). Settings → Dancing, or `--style dreamers` for one run.
 * `--demo` dances to a built-in virtual song without capturing audio.
 
 ## Status (2026-10-17)
@@ -44,7 +47,7 @@ Details: [docs/setup-and-installation.md](docs/setup-and-installation.md).
 | Windows | **Verified on GitHub's Windows machines**: `run.bat` setup, tests, real WASAPI loopback capture (virtual sound card), rendering (software fallback, no GPU there), packaged `.exe`. Not yet on a desktop PC with a GPU. |
 | Ubuntu 24.04 | **Verified in a container and CI**: setup, tests, real PulseAudio capture, rendering, packaging. Not yet on a real desktop. |
 
-159 automated tests pass; ruff and mypy are clean. See
+172 automated tests pass; ruff and mypy are clean. See
 [docs/cross-platform-support.md](docs/cross-platform-support.md) and
 [docs/known-limitations.md](docs/known-limitations.md).
 

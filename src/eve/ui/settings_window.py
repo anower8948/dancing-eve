@@ -25,6 +25,7 @@ from eve import APP_NAME, __version__
 from eve.app_context import AppController
 from eve.audio.capture_status import CaptureStatus, CaptureStatusInfo
 from eve.config import LIMITS
+from eve.dance.movement_library import DANCE_STYLES
 from eve.ui.debug_panel import DebugPanel
 from eve.ui.status_widget import LevelMeter, StatusWidget
 from eve.ui.styles import SETTINGS_QSS
@@ -100,8 +101,16 @@ class SettingsWindow(QWidget):
         self.reduced = QCheckBox("Reduced motion (smaller, calmer movements, no spins)")
         self.reduced.setChecked(s.reduced_motion)
         self.reduced.toggled.connect(lambda on: app.update_setting("reduced_motion", on))
+        self.style_box = QComboBox()
+        for key, label in DANCE_STYLES.items():
+            self.style_box.addItem(label, key)
+        self.style_box.setCurrentIndex(max(0, self.style_box.findData(s.dance_style)))
+        self.style_box.currentIndexChanged.connect(
+            lambda _i: app.update_setting("dance_style", self.style_box.currentData())
+        )
         df.addRow("Audio sensitivity", self.sensitivity)
         df.addRow("Dance intensity", self.intensity)
+        df.addRow("Dance style", self.style_box)
         df.addRow(self.reduced)
 
         # --- Window --------------------------------------------------------------------
@@ -257,6 +266,9 @@ class SettingsWindow(QWidget):
             (self.intensity, int(s.dance_intensity * 100)),
             (self.size_slider, s.character_size),
         )
+        self.style_box.blockSignals(True)
+        self.style_box.setCurrentIndex(max(0, self.style_box.findData(s.dance_style)))
+        self.style_box.blockSignals(False)
         for slider, value in pairs:
             slider.blockSignals(True)
             slider.setValue(value)

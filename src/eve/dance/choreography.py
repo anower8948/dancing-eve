@@ -15,7 +15,7 @@ from collections import deque
 
 from eve.dance.dance_state import DanceState
 from eve.dance.movement_history import MovementHistory
-from eve.dance.movement_library import Movement
+from eve.dance.movement_library import ROUTINES, Movement
 
 REPEAT_PENALTY = 0.35  # per occurrence in the last few picks
 IMMEDIATE_REPEAT_PENALTY = 0.15
@@ -24,7 +24,11 @@ PHRASE_MAX_BEATS = 4  # only short moves form phrases
 PHRASE_MAX_COOLDOWN = 8.0  # "special" moves (spins, big dips) keep their cooldown: never phrased
 # Letters after the opening move: "A" = same move mirrored, "a" = same move same side,
 # "B" = a contrasting move, "b" = the contrasting move mirrored.
-PHRASE_PATTERNS = ("AB", "ABA", "BbA", "AaB")
+PHRASE_PATTERNS = ("AB", "ABA", "BbA", "BA")  # a move never plays more than twice in a row
+STYLE_BOOST = 5.0  # weight multiplier for moves of the selected dance style
+OFF_STYLE_FACTOR = 0.5  # other moves still appear, less often, so it never gets monotonous
+ROUTINE_PROBABILITY = 0.3
+ROUTINE_COOLDOWN = 45.0  # seconds between signature routines
 
 
 class Choreographer:
@@ -42,6 +46,8 @@ class Choreographer:
         self._pending_side: float | None = None
         self._queue: deque[tuple[str, float, DanceState]] = deque()
         self.in_phrase = False
+        self.style = "mixed"
+        self._last_routine = -1e9
 
     def _drive_fit(self, move: Movement, drive: float) -> float:
         lo, hi = move.drive_range
@@ -58,6 +64,8 @@ class Choreographer:
             if base <= 0 or (reduced_motion and not move.reduced_motion_ok):
                 continue
             w = base * self._drive_fit(move, drive)
+            if self.style != "mixed":
+                w *= STYLE_BOOST if move.style == self.style else OFF_STYLE_FACTOR
             w *= REPEAT_PENALTY ** self.history.count_recent(name)
             if name == last:
                 w *= IMMEDIATE_REPEAT_PENALTY
@@ -96,6 +104,8 @@ class Choreographer:
                 return move
             self._queue.clear()  # the music changed: abandon the phrase
         self.in_phrase = False
+        if self._start_routine(state, now, reduced_motion):
+            return self.choose(state, drive, now, reduced_motion)
         pick = self._pick(state, drive, now, reduced_motion)
         if pick is None:
             return None
@@ -124,6 +134,30 @@ class Choreographer:
         for letter in self.rng.choice(PHRASE_PATTERNS):
             name, side = steps[letter]
             self._queue.append((name, side, state))
+
+    def _start_routine(self, state: DanceState, now: float, reduced_motion: bool) -> bool:
+        """Queue the selected style's signature routine (the moves valid in this state)."""
+        routine = ROUTINES.get(self.style)
+        if (
+            not routine
+            or state not in (DanceState.CALM, DanceState.GROOVE, DanceState.ENERGETIC)
+            or now - self._last_routine < ROUTINE_COOLDOWN
+            or self.rng.random() >= ROUTINE_PROBABILITY
+        ):
+            return False
+        moves = [
+            name
+            for name in routine
+            if self.library[name].states.get(state, 0) > 0
+            and (self.library[name].reduced_motion_ok or not reduced_motion)
+        ]
+        if len(moves) < 2:
+            return False
+        self._last_routine = now
+        side = self.choose_side()
+        for i, name in enumerate(moves):
+            self._queue.append((name, side if i % 2 == 0 else -side, state))
+        return True
 
     def clear_phrase(self) -> None:
         self._queue.clear()

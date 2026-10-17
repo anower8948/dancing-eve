@@ -29,6 +29,7 @@ class Settings:
     audio_source_id: str | None = None  # None = best default source
     sensitivity: float = 1.0
     dance_intensity: float = 1.0
+    dance_style: str = "mixed"  # see eve.dance.movement_library.DANCE_STYLES
     reduced_motion: bool = False
     character_size: int = 280  # window height in logical pixels
     always_on_top: bool = True
@@ -50,6 +51,9 @@ class Settings:
         return min(30, self.target_fps) if self.power_saving else self.target_fps
 
 
+# Allowed values for string settings (kept in sync with movement_library.DANCE_STYLES).
+CHOICES: dict[str, tuple[str, ...]] = {"dance_style": ("mixed", "dreamers")}
+
 _DEFAULTS = Settings()
 
 
@@ -57,6 +61,8 @@ def _coerce(name: str, value: Any, default: Any) -> Any:
     """Return ``value`` converted to the type of ``default`` (or the default if invalid)."""
     if name in ("audio_source_id", "window_screen"):
         return value if isinstance(value, str) and value else None
+    if name in CHOICES:
+        return value if value in CHOICES[name] else default
     if isinstance(value, float) and not math.isfinite(value):
         return None if name in ("window_x", "window_y") else default
     if name in ("window_x", "window_y"):

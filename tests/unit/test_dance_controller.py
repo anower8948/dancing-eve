@@ -135,7 +135,7 @@ def test_surge_triggers_a_single_flourish() -> None:
         out = dc.update(DT, music(0.6, 0.7), 0.0, [])
         seen.append((dc.fsm.effective, out.movement))
     flourish_moves = {m for s, m in seen if s == DanceState.FLOURISH}
-    assert flourish_moves <= {"celebratory_flourish", "star_burst"}
+    assert flourish_moves <= {"celebratory_flourish", "star_burst", "victory_jump"}
     assert dc.fsm.effective != DanceState.FLOURISH
 
 
@@ -159,12 +159,18 @@ def test_reduced_motion_excludes_spins_and_scales_motion() -> None:
     choreo = Choreographer(build_library(), random.Random(13))
     picks = {choreo.choose(DanceState.ENERGETIC, 0.9, now=i * 20.0, reduced_motion=True).name for i in range(80)}
     assert "small_spin" not in picks and "celebratory_flourish" not in picks
-    normal = DanceController(DanceSettings(reduced_motion=False), seed=14)
-    reduced = DanceController(DanceSettings(reduced_motion=True), seed=14)
-    a = run(normal, music(0.7, 0.8), 6.0).targets.copy()
-    b = run(reduced, music(0.7, 0.8), 6.0).targets.copy()
+    assert "victory_jump" not in picks and "star_burst" not in picks
+    # The same move under both settings: reduced motion scales posture down.
     posture = [Ch.ROOT_X, Ch.ROOT_Z, Ch.BODY_R, Ch.BODY_P]
-    assert np.abs(b[posture]).sum() <= np.abs(a[posture]).sum() + 1e-9
+    peaks = []
+    for reduced_motion in (False, True):
+        dc = DanceController(DanceSettings(reduced_motion=reduced_motion), seed=14)
+        dc.request_movement("alternating_bounce")
+        peak = 0.0
+        for _ in range(int(1.5 / DT)):
+            peak = max(peak, float(np.abs(dc.update(DT, SILENT_FEATURES, 0.0, []).targets[posture]).sum()))
+        peaks.append(peak)
+    assert peaks[1] < 0.6 * peaks[0]
 
 
 @pytest.mark.parametrize("name", sorted(build_library()))
@@ -275,3 +281,56 @@ def test_robot_gets_sleepy_after_long_silence_and_wakes_with_music() -> None:
     assert anim.drowsiness < 0.2
     anim.poke()
     assert anim.quiet_time == 0.0
+
+
+DREAMERS = {"anthem_march", "sky_point", "heart_hand", "dream_reach", "flag_wave", "stadium_wave", "victory_jump"}
+
+
+def test_dreamers_moves_exist_and_are_tagged() -> None:
+    library = build_library()
+    assert {name for name, m in library.items() if m.style == "dreamers"} == DREAMERS
+
+
+def test_dreamers_style_favours_its_moves_but_stays_varied() -> None:
+    picks = Counter()
+    choreo = Choreographer(build_library(), random.Random(31), phrase_probability=0.0)
+    choreo.style = "dreamers"
+    for i in range(200):
+        picks[choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0).name] += 1
+    dreamers_share = sum(n for name, n in picks.items() if name in DREAMERS) / 200
+    assert dreamers_share > 0.4
+    assert sum(1 for name in picks if name not in DREAMERS) >= 4  # other moves still appear
+
+    mixed = Counter()
+    choreo = Choreographer(build_library(), random.Random(31), phrase_probability=0.0)
+    for i in range(200):
+        mixed[choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0).name] += 1
+    assert sum(n for name, n in mixed.items() if name in DREAMERS) / 200 < dreamers_share
+
+
+def test_dreamers_routine_plays_in_order() -> None:
+    from eve.dance.movement_library import ROUTINES
+
+    routine = [n for n in ROUTINES["dreamers"] if build_library()[n].states.get(DanceState.GROOVE, 0) > 0]
+    for seed in range(40):
+        choreo = Choreographer(build_library(), random.Random(seed), phrase_probability=0.0)
+        choreo.style = "dreamers"
+        names = [choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0).name for i in range(12)]
+        for start in range(len(names) - len(routine) + 1):
+            if names[start : start + len(routine)] == routine:
+                return
+    raise AssertionError("signature routine never appeared")
+
+
+def test_dreamers_flourish_is_the_victory_jump() -> None:
+    choreo = Choreographer(build_library(), random.Random(5))
+    choreo.style = "dreamers"
+    picks = Counter(choreo.choose(DanceState.FLOURISH, 0.8, now=i * 20.0).name for i in range(60))
+    assert picks.most_common(1)[0][0] == "victory_jump"
+
+
+def test_no_move_plays_three_times_in_a_row() -> None:
+    for seed in range(20):
+        choreo = Choreographer(build_library(), random.Random(seed), phrase_probability=1.0)
+        names = [choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0).name for i in range(60)]
+        assert not any(a == b == c for a, b, c in zip(names, names[1:], names[2:], strict=False))

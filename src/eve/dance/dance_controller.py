@@ -14,6 +14,7 @@ It knows nothing about rendering or audio capture.
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass, field
@@ -30,6 +31,8 @@ from eve.dance.motion_smoothing import ExpSmoother
 from eve.dance.movement_library import Movement, build_library
 from eve.dance.transition_manager import ActiveMove, TransitionManager
 
+log = logging.getLogger(__name__)
+
 STALE_FEATURES_SECONDS = 0.6
 MIN_TEMPO_CONFIDENCE = 0.35
 ONSET_ACCENT_COOLDOWN = 0.14
@@ -40,6 +43,7 @@ SURPRISE_SECONDS = 0.9
 class DanceSettings:
     intensity: float = 1.0  # user "dance intensity" 0..1.5
     reduced_motion: bool = False
+    style: str = "mixed"  # key of movement_library.DANCE_STYLES
 
 
 @dataclass
@@ -139,7 +143,9 @@ class DanceController:
         weight_target = activity if dancing else 0.0
         if manual_active:
             weight_target = 1.0
-        weight = self._weight.update(weight_target, dt)
+        # A move played by hand (debug panel / demo) fades in faster than music does, so it
+        # is shown at full size from its first beat.
+        weight = self._weight.update(weight_target, dt * (3.0 if manual_active else 1.0))
         amp = self._amp.update((0.45 + 0.75 * drive) * self.settings.intensity, dt)
         if manual_active and not dancing:
             amp = max(amp, 0.8 * self.settings.intensity)
@@ -213,6 +219,7 @@ class DanceController:
         needs_new = current is None or current.finished(self.beat_pos) or state_changed
         if not needs_new:
             return
+        self.choreographer.style = self.settings.style
         move = self.choreographer.choose(effective, drive, self.now, self.settings.reduced_motion)
         if move is None:
             return
@@ -225,6 +232,13 @@ class DanceController:
             side=self.choreographer.choose_side(),
             amp_jitter=self.rng.uniform(0.88, 1.1),
             speed=speed,
+        )
+        log.debug(
+            "move %s (%s, side %+.0f, %s)",
+            move.name,
+            effective.value,
+            active.side,
+            "phrase" if self.choreographer.in_phrase else "pick",
         )
         blend = move.blend_in if not state_changed else max(move.blend_in, 0.7)
         self.transitions.start(active, blend)
