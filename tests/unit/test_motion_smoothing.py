@@ -80,7 +80,7 @@ def test_motion_parameters_cover_every_channel_and_clamp() -> None:
     values = np.full(N_CHANNELS, 1e6)
     clamped = mp.clamp_pose(values)
     assert clamped[Ch.BODY_R] == mp.SPECS[Ch.BODY_R].hi
-    assert clamped[Ch.EYE_OPEN] == 1.0
+    assert clamped[Ch.EYE_OPEN] == 1.3  # wide-eyed surprise is the maximum
     assert len(mp.FREQUENCIES) == N_CHANNELS
 
 

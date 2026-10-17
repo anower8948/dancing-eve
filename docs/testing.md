@@ -7,7 +7,7 @@
 EVE_SKIP_GUI_TESTS=1 .venv/bin/pytest -q       # headless machines (skips gui/render tests)
 ```
 
-Latest result (macOS 27.0, M2, Python 3.12.13, 2026-10-17): **138 passed**, ruff clean,
+Latest result (macOS 27.0, M2, Python 3.12.13, 2026-10-17): **157 passed**, ruff clean,
 mypy clean (75 files).
 
 ## What is covered

@@ -135,12 +135,12 @@ def test_surge_triggers_a_single_flourish() -> None:
         out = dc.update(DT, music(0.6, 0.7), 0.0, [])
         seen.append((dc.fsm.effective, out.movement))
     flourish_moves = {m for s, m in seen if s == DanceState.FLOURISH}
-    assert flourish_moves <= {"celebratory_flourish"}
+    assert flourish_moves <= {"celebratory_flourish", "star_burst"}
     assert dc.fsm.effective != DanceState.FLOURISH
 
 
 def test_choreography_is_varied_and_avoids_immediate_repeats() -> None:
-    choreo = Choreographer(build_library(), random.Random(11))
+    choreo = Choreographer(build_library(), random.Random(11), phrase_probability=0.0)
     picks = [choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0).name for i in range(60)]
     counts = Counter(picks)
     assert len(counts) >= 6
@@ -217,3 +217,61 @@ def test_demo_song_drives_full_pipeline_smoothly() -> None:
             assert jump[[Ch.BODY_P, Ch.BODY_R, Ch.HEAD_P, Ch.HEAD_R]].max() < 8.0
         prev = pose.copy()
     assert {DanceState.IDLE, DanceState.CALM, DanceState.GROOVE, DanceState.ENERGETIC} <= states
+
+
+def test_library_has_enough_variety_per_state() -> None:
+    library = build_library()
+    assert len(library) >= 27
+    for state, minimum in ((DanceState.CALM, 7), (DanceState.GROOVE, 14), (DanceState.ENERGETIC, 12)):
+        assert sum(1 for m in library.values() if m.states.get(state, 0) > 0) >= minimum
+    assert sum(1 for m in library.values() if m.states.get(DanceState.FLOURISH, 0) > 0) >= 2
+
+
+def test_phrases_mirror_moves_and_stay_varied() -> None:
+    choreo = Choreographer(build_library(), random.Random(21), phrase_probability=1.0)
+    picks = []
+    for i in range(80):
+        move = choreo.choose(DanceState.GROOVE, 0.6, now=i * 2.0)
+        picks.append((move.name, choreo.choose_side(), choreo.in_phrase))
+    mirrored = sum(
+        1
+        for (a, sa, _), (b, sb, in_phrase) in zip(picks, picks[1:], strict=False)
+        if in_phrase and a == b and sa == -sb
+    )
+    assert mirrored >= 5  # call-and-response repeats happen, on the opposite side
+    assert sum(1 for _, _, p in picks if p) > 20
+    names = Counter(name for name, _, _ in picks)
+    assert len(names) >= 8 and names.most_common(1)[0][1] < 0.3 * len(picks)
+
+
+def test_phrase_is_abandoned_when_state_changes() -> None:
+    choreo = Choreographer(build_library(), random.Random(22), phrase_probability=1.0)
+    first = choreo.choose(DanceState.GROOVE, 0.6, now=0.0)
+    choreo.choose_side()
+    nxt = choreo.choose(DanceState.CALM, 0.2, now=2.0)
+    assert nxt.states.get(DanceState.CALM, 0) > 0
+    assert first is not None and not choreo.in_phrase
+
+
+def test_surge_makes_eyes_wide() -> None:
+    dc = DanceController(seed=23)
+    run(dc, music(0.6, 0.7), 8.0)
+    base = dc.update(DT, music(0.6, 0.7), 0.0, []).targets[Ch.EYE_OPEN]
+    dc.update(DT, music(0.6, 0.7), 0.0, [PulseEvent(PulseKind.SURGE, 0.0, 1.0, 1.0)])
+    peak = max(dc.update(DT, music(0.6, 0.7), 0.0, []).targets[Ch.EYE_OPEN] for _ in range(40))
+    assert peak > base + 0.2
+
+
+def test_robot_gets_sleepy_after_long_silence_and_wakes_with_music() -> None:
+    anim = AnimationController(seed=24)
+    dc = DanceController(seed=24)
+    for _ in range(int(100 / DT)):
+        anim.update(DT, dc.update(DT, SILENT_FEATURES, 0.0, []))
+    assert anim.drowsiness > 0.8
+    sleepy_eyes = anim.pose[Ch.EYE_OPEN]
+    assert sleepy_eyes < 0.75
+    for _ in range(int(6 / DT)):
+        anim.update(DT, dc.update(DT, music(0.6, 0.7), 0.0, []))
+    assert anim.drowsiness < 0.2
+    anim.poke()
+    assert anim.quiet_time == 0.0

@@ -1,6 +1,6 @@
 # Current state — read this first
 
-_Last updated: 2026-10-17 (end of session 1)._
+_Last updated: 2026-10-17 (session 2: more dance moves, phrases, expressions, lower idle CPU)._
 
 ## In one paragraph
 
@@ -10,8 +10,8 @@ starts the app. A procedurally modelled white robot (egg body, floating head, da
 glowing blue eyes, paddle arms, chest light, soft shadow) floats in a transparent,
 frameless, always-on-top Qt window. Real system audio is captured with ScreenCaptureKit,
 analysed on a worker thread (bands, flux, onsets, tempo, phase-locked beats, silence,
-surges) and drives a choreography engine (state machine + 13 movement primitives +
-crossfades + beat impulses) feeding a spring-based layered animation system.
+surges) and drives a choreography engine (state machine + 27 movement primitives +
+call-and-response phrases + crossfades + beat impulses) feeding a spring-based layered animation system.
 Windows/Ubuntu code paths exist but have never been run.
 
 ## Environment used
@@ -29,9 +29,12 @@ macOS 27.0 (26A428), Apple M2 (8-core CPU, 10-core GPU), Python 3.12.13 (Homebre
 * Rendering: transparent window over other apps (screen capture), MSAA 4×, Retina-aware.
 * App: demo mode, live mode (GROOVE state reached from real audio), settings window with
   debug panel, single instance, clean shutdown, settings persistence.
-* Performance: dancing 58 FPS, 3.7 ms/frame, 23 % of one core, ~230 MB RSS.
+* Performance: dancing 58 FPS, 3.6 ms/frame, 20 % of one core, ~240 MB RSS; idle 24 FPS ≈ 10 %; sleepy 15 FPS ≈ 9 %.
+* Session 2: 14 new moves (incl. a second flourish), phrase planner, surprised/sleepy
+  expressions, bolder happy eyes, overhead arm poses, wider 1:1 window, monotonic dance
+  clock. Checked with rendered pose sheets and tests — not yet watched live with real songs.
 * PyInstaller `dist/ProjectEVE.app` (157 MB): renders and captures when run from terminal.
-* Quality: 138 tests pass; ruff + mypy clean.
+* Quality: 157 tests pass; ruff + mypy clean.
 
 ## Incomplete / unverified
 
@@ -53,13 +56,15 @@ macOS 27.0 (26A428), Apple M2 (8-core CPU, 10-core GPU), Python 3.12.13 (Homebre
 ## Recent test results
 
 `.venv/bin/python scripts/run_dev.py check` → ruff OK, format OK, mypy OK (75 files),
-pytest **138 passed** (~15 s, includes real Qt+Panda3D start-up tests).
+pytest **157 passed** (~15 s, includes real Qt+Panda3D start-up tests).
 
 ## Known bugs / rough edges
 
 * Tempo octave errors on some patterns (docs/known-limitations.md #3).
-* CPU ~19–23 % of a core from synchronous readback.
-* Happy-eye arcs thin at small size.
+* CPU ~20 % of a core while dancing from synchronous readback (idle ~10 %).
+* New moves need live tuning with real music.
+* The window is now square (aspect 1.0) and the default size 280 px; existing users keep
+  their saved size, so the robot looks ~9 % smaller than before at the same size.
 
 ## Immediate next steps
 

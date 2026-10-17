@@ -17,6 +17,7 @@ from eve.animation.procedural_motion import SmoothNoise
 from eve.character.character_rig import N_CHANNELS, Ch
 
 BLINK_DURATION = 0.17
+SLEEPY_BLINK_DURATION = 0.45
 
 
 class IdleAnimator:
@@ -36,23 +37,31 @@ class IdleAnimator:
         self._next_mood = self.rng.uniform(8.0, 16.0)
         self._mood: tuple[float, float] | None = None
         self.blink_amount = 0.0  # 0 open .. 1 closed (applied after the springs)
+        self.drowsiness = 0.0  # 0 awake .. 1 asleep-ish; set by the AnimationController
+        self._breath = self.t  # breathing phase (slows down when drowsy)
 
     def poke(self) -> None:
         """React to a click: immediate blink and a happy look."""
         self._blink_start = self.t
         self._mood = (self.t, 2.5)
 
-    def update(self, dt: float) -> np.ndarray:
+    def update(self, dt: float, drowsiness: float = 0.0) -> np.ndarray:
+        self.drowsiness = drowsiness
+        # Drowsy breathing slows down; integrate a separate breathing phase so the change
+        # in speed never makes the motion jump.
         self.t += dt
+        self._breath += dt * (1.0 - 0.45 * drowsiness)
         t = self.t
+        bt = self._breath
         n = self.noise
         out = self._out
         out.fill(0.0)
+        awake = 1.0 - 0.6 * drowsiness
 
         # Floating and breathing.
-        out[Ch.ROOT_Z] = 0.028 * math.sin(2 * math.pi * 0.21 * t) + 0.01 * n.fractal(t * 0.35)
-        out[Ch.BODY_SQUASH] = 0.010 * math.sin(2 * math.pi * 0.24 * t)
-        out[Ch.HEAD_LIFT] = 0.008 * math.sin(2 * math.pi * 0.24 * t - 0.9)
+        out[Ch.ROOT_Z] = awake * (0.028 * math.sin(2 * math.pi * 0.21 * bt) + 0.01 * n.fractal(t * 0.35))
+        out[Ch.BODY_SQUASH] = 0.010 * math.sin(2 * math.pi * 0.24 * bt) * (1.0 + 0.5 * drowsiness)
+        out[Ch.HEAD_LIFT] = 0.008 * math.sin(2 * math.pi * 0.24 * bt - 0.9)
         # Slow drift and small orientation changes.
         out[Ch.ROOT_X] = 0.035 * n.fractal(t * 0.06 + 11.0)
         out[Ch.ROOT_H] = 9.0 * n.fractal(t * 0.045 + 23.0)
@@ -64,7 +73,18 @@ class IdleAnimator:
         out[Ch.ARM_R_SWING] = 4.0 * n.fractal(t * 0.13 + 91.0)
         out[Ch.EYE_GLOW] = 0.05 * math.sin(2 * math.pi * 0.12 * t)
 
-        self._update_glance(out)
+        if drowsiness > 0.0:
+            # Sleepy: heavy eyelids, sinking a little, head slowly nodding off.
+            nod = 0.5 + 0.5 * math.sin(2 * math.pi * 0.07 * t)
+            out[Ch.EYE_OPEN] -= 0.55 * drowsiness
+            out[Ch.EYE_GLOW] -= 0.25 * drowsiness
+            out[Ch.ROOT_Z] -= 0.05 * drowsiness
+            out[Ch.HEAD_P] += drowsiness * (5.0 + 7.0 * nod)
+            out[Ch.HEAD_R] += 6.0 * drowsiness
+            out[Ch.ARM_L_SPREAD] -= 4.0 * drowsiness
+            out[Ch.ARM_R_SPREAD] -= 4.0 * drowsiness
+        if drowsiness < 0.6:
+            self._update_glance(out)  # too sleepy to look around
         self._update_mood(out)
         self.blink_amount = self._update_blink()
         return out
@@ -75,7 +95,8 @@ class IdleAnimator:
             self._blink_start = t
         if self._blink_start is None:
             return 0.0
-        u = (t - self._blink_start) / BLINK_DURATION
+        duration = BLINK_DURATION + (SLEEPY_BLINK_DURATION - BLINK_DURATION) * self.drowsiness
+        u = (t - self._blink_start) / duration
         if u >= 1.0:
             self._blink_start = None
             if self._double_blink_pending:

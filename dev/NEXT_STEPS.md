@@ -13,10 +13,11 @@
 4. **Manual interaction pass (macOS).**
    Done when: drag, poke, double-click, context menu, tray menu, click-through on/off,
    hide/show and moving between the 1080p and 4K monitors all behave; bugs fixed.
-5. **Watch EVE with real songs** (several genres/tempos) and tune thresholds/weights.
+5. **Watch EVE with real songs** (several genres/tempos) and tune thresholds/weights,
+   including the 14 moves and phrase patterns added in session 2.
    Done when: calm, groove and energetic songs visibly differ, no jitter, settling is
    smooth; changes recorded in IMPLEMENTATION_LOG.md.
-6. **Reduce CPU** (async readback or render-on-change at idle).
-   Done when: idle CPU < 8 % of one core on the M2 measured with `--smoke-test`.
+6. **Reduce CPU further** (async readback or a Qt-shared GL context). Idle is now ≈10 %.
+   Done when: dancing CPU < 12 % and idle < 6 % of one core on the M2.
 7. **Finder double-click tests** for `run.command` and `dist/ProjectEVE.app`.
    Done when: both start EVE and the permission is attributed as documented.

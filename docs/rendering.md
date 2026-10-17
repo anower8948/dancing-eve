@@ -33,12 +33,16 @@ moves between Retina and non-Retina screens.
 
 | Scenario | FPS | frame p50 / p95 | render p50 | process CPU | RSS |
 |---|---|---|---|---|---|
-| Dancing (`--demo`, 20 s) | 58.4 | 3.7 / 4.6 ms | 3.0 ms | 23 % of one core | 229 MB |
-| Idle (`--no-audio`, 20 s, drops to idle FPS after 12 s) | 47 avg | 3.6 / 4.3 ms | 2.9 ms | 19 % | 209 MB |
+| Dancing (`--demo`, 25 s, 280×280) | 58.5 | 3.6 ms | — | 20 % of one core | 240 MB |
+| Idle, steady state (24 FPS) | 23.8 | — | — | 9.9 % | ~200 MB |
+| Sleepy (15 FPS) | 14.9 | — | — | 8.7 % | — |
 | Tight render loop (no Qt painting) | — | — | 0.45 ms | — | — |
 
 The gap between 0.45 ms and ~3 ms is the synchronous GPU→CPU readback waiting for an
-idling GPU. Idle FPS has since been lowered from 30 to 24 (not re-measured). Ideas:
+idling GPU. Breakdown at 60 FPS (measured by disabling parts): rendering ≈ 12 %,
+window repaint ≈ 8 % (now a single-pass paint), the rest ≈ 7 %. Idle power saving now
+applies even with debug mode on (unless the debug panel is visible). Panda3D's
+`threading-model Cull/Draw` and disabling MSAA were tried and did not reduce CPU. Ideas:
 async PBO readback, sharing a Qt OpenGL context, rendering only when the pose changes.
 
 ## Replacing the character

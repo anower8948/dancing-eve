@@ -43,7 +43,7 @@ Details: [docs/setup-and-installation.md](docs/setup-and-installation.md).
 | macOS (Apple Silicon) | **Working and verified** — real system-audio capture, rendering, transparency, setup, packaging. |
 | Windows / Ubuntu | **Implemented, not yet tested on real machines.** |
 
-138 automated tests pass; ruff and mypy are clean. See
+157 automated tests pass; ruff and mypy are clean. See
 [docs/cross-platform-support.md](docs/cross-platform-support.md) and
 [docs/known-limitations.md](docs/known-limitations.md).
 

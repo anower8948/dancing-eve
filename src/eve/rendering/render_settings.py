@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 # Vertical extent of the scene (in character units) that fits the window, and the window
 # aspect ratio (width / height). Chosen so arms raised overhead and side drift stay in view.
-VIEW_HEIGHT = 2.05
-WINDOW_ASPECT = 0.82
+VIEW_HEIGHT = 2.25
+WINDOW_ASPECT = 1.0  # wide enough for arms raised sideways while side-stepping
 
 
 @dataclass

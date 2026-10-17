@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from eve.animation.interpolation import bell
 from eve.audio.audio_features import SILENT_FEATURES, AudioFeatures, PulseEvent, PulseKind
 from eve.character.character_rig import N_CHANNELS, Ch
 from eve.dance.choreography import Choreographer
@@ -32,6 +33,7 @@ from eve.dance.transition_manager import ActiveMove, TransitionManager
 STALE_FEATURES_SECONDS = 0.6
 MIN_TEMPO_CONFIDENCE = 0.35
 ONSET_ACCENT_COOLDOWN = 0.14
+SURPRISE_SECONDS = 0.9
 
 
 @dataclass
@@ -83,6 +85,7 @@ class DanceController:
         self._accent_flip = 1.0
         self._manual: ActiveMove | None = None
         self._last_effective = DanceState.IDLE
+        self._since_surge = 1e9
 
     # -- public ---------------------------------------------------------------------------
     def request_movement(self, name: str) -> bool:
@@ -118,6 +121,7 @@ class DanceController:
         self._advance_clock(dt, f, features_age, drive)
 
         surge = any(e.kind == PulseKind.SURGE for e in events)
+        self._since_surge = 0.0 if surge else self._since_surge + dt
         self.fsm.update(dt, activity, drive, surge)
         effective = self.fsm.effective
 
@@ -151,6 +155,13 @@ class DanceController:
         out[:] = targets
         # Expression layered on top of the movement (bass makes the eyes glow a little).
         out[Ch.EYE_GLOW] += 0.25 * f.bass_pulse
+        if self._since_surge < SURPRISE_SECONDS:
+            # Wide-eyed "whoa!" when the music suddenly gets bigger.
+            env = bell(self._since_surge / SURPRISE_SECONDS)
+            out[Ch.EYE_OPEN] += 0.3 * env
+            out[Ch.HEAD_LIFT] += 0.04 * env
+            out[Ch.EYE_HAPPY] *= 1.0 - env
+            out[Ch.EYE_GLOW] += 0.3 * env
         if effective == DanceState.FLOURISH:
             out[Ch.EYE_HAPPY] = max(out[Ch.EYE_HAPPY], 1.0)
         reduced = self.settings.reduced_motion
@@ -185,10 +196,14 @@ class DanceController:
             period = 60.0 / (84.0 + 36.0 * drive)
             self.beat_locked = False
         self.period += (period - self.period) * min(1.0, dt * 2.0)
-        self.beat_pos += dt / self.period
+        advance = dt / self.period
+        self.beat_pos += advance
         if target_phase is not None:
             error = _wrap_phase(target_phase - (self.beat_pos % 1.0))
-            self.beat_pos += error * min(1.0, dt * 4.0)
+            # Never correct by more than half a frame's advance: the clock always moves
+            # forward (moves never freeze or rewind), even if the phase input is bad.
+            limit = 0.5 * advance
+            self.beat_pos += max(-limit, min(limit, error * min(1.0, dt * 4.0)))
 
     def _update_movement(self, effective: DanceState, drive: float) -> None:
         current = self.transitions.current

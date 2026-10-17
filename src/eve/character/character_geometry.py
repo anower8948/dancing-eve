@@ -181,13 +181,15 @@ def eye_mesh(width: float, height: float, curvature_radius: float, n: int = 28) 
     return _orient_toward(mesh, np.array([0.0, -1.0, 0.0]))
 
 
-def eye_arc_mesh(width: float, height: float, curvature_radius: float, thickness: float = 0.55, n: int = 24) -> Mesh:
+def eye_arc_mesh(width: float, height: float, curvature_radius: float, thickness: float = 0.85, n: int = 28) -> Mesh:
     """'Happy' eye: an upward arc (like ^) with rounded ends, local coordinates."""
-    a = np.linspace(math.radians(18), math.radians(162), n)[None, :]
+    a = np.linspace(math.radians(12), math.radians(168), n)[None, :]
     t = np.linspace(-1.0, 1.0, 5)[:, None]
-    radius = 1.0 + 0.5 * thickness * t
-    x = width * np.cos(a) * radius
-    z = height * 1.15 * (np.sin(a) * radius - 0.55)
+    # Taper the stroke toward both ends so the arc reads as a soft smiling eye.
+    taper = 0.45 + 0.55 * np.sin(a)
+    radius = 1.0 + 0.5 * thickness * t * taper
+    x = width * 1.05 * np.cos(a) * radius
+    z = height * 1.35 * (np.sin(a) * radius - 0.6)
     y = (x * x + z * z) / (2.0 * curvature_radius)
     pts = np.stack(np.broadcast_arrays(x, y, z), axis=-1)
     mesh = grid_mesh(pts, wrap=False)

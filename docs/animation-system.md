@@ -47,7 +47,8 @@ different axis convention, adjust `ROLL_SIGN`/`PITCH_SIGN` in `eve_character.py`
 ## Choreography (`eve/dance`)
 
 * **Musical clock**: `beat_pos` advances at the tracked tempo and is phase-locked to the
-  analyser's beat phase (soft correction, ≤ 0.07 beat per frame). Without trusted tempo
+  analyser's beat phase (soft correction, capped at half a frame's advance so the clock
+  always moves forward — moves never freeze or rewind on bad input). Without trusted tempo
   (confidence < 0.35) it free-runs at 84–120 BPM pacing and accents come from onsets
   ("energy-reactive fallback") — the robot never pretends to follow a beat it cannot hear.
 * **Drive** = 0.45·rhythmic intensity + 0.35·smoothed energy + 0.2·tempo factor
@@ -57,9 +58,16 @@ different axis convention, adjust `ROLL_SIGN`/`PITCH_SIGN` in `eve_character.py`
   3 s minimum dwell, 1.2 s silence hold before idle, 0.8 s TRANSITION crossfade between
   dancing states, FLOURISH on an analyser surge with a 15 s cooldown (one celebratory
   move, then back).
-* **Movement library** (`movement_library.py`, 13 primitives): gentle_sway, bob,
-  double_bounce, alternating_bounce, head_nod, small_spin, circular_glide, arm_wave,
-  excited_wiggle, rhythmic_accent, floating_turn, celebratory_flourish, slow_dance. Each
+* **Movement library** (`movement_library.py`, 27 primitives):
+
+  | State | Moves |
+  |---|---|
+  | CALM | gentle_sway, head_nod, circular_glide, floating_turn, slow_dance, body_wave, lean_back_groove, figure_eight, pendulum_swing, look_around |
+  | GROOVE | gentle_sway, bob, double_bounce, alternating_bounce, head_nod, small_spin, circular_glide, arm_wave, rhythmic_accent, floating_turn, side_step, robot_pop, body_wave, fist_pump, hop_turn, lean_back_groove, figure_eight, pendulum_swing, arm_circles, shimmy, dip_and_rise |
+  | ENERGETIC | bob, double_bounce, alternating_bounce, small_spin, arm_wave, excited_wiggle, rhythmic_accent, side_step, robot_pop, headbang, fist_pump, hop_turn, arm_circles, shimmy, dip_and_rise |
+  | FLOURISH | celebratory_flourish, star_burst |
+
+  Each
   has per-state weights, a preferred drive range, cooldown, reduced-motion eligibility,
   half-time eligibility and a crossfade time. Anticipation is built into the curves
   (`anticipate()` wind-ups before spins/turns, dips before hops, head "spotting" before a
@@ -67,6 +75,17 @@ different axis convention, adjust `ROLL_SIGN`/`PITCH_SIGN` in `eve_character.py`
 * **Selection** (`choreography.py`): weight × drive fit × 0.35^(recent repeats) ×
   0.15 if it was the previous move × cooldown gate; random side mirroring (70 % alternate);
   ±10 % amplitude jitter; half-time in calm passages above 105 BPM.
+* **Phrases**: 40 % of picks of short moves (≤ 4 beats, cooldown < 8 s) start a phrase —
+  patterns `AB`, `ABA`, `BbA`, `AaB` after the opening move, where `A` repeats the move
+  mirrored (call and response), `a` repeats it on the same side, `B`/`b` is a
+  contrasting move. A phrase is abandoned when the dance state changes.
+* **Expressions**: wide eyes (EYE_OPEN up to 1.3) and a head lift for 0.9 s on a surge;
+  happy arcs per move; sleepy after 45 s without dancing (ramping over 30 s: heavy lids,
+  slow blinks, sinking, nodding off, no glances; the app drops to 15 FPS), waking quickly
+  when music starts or on a click.
+* **Arms overhead** use *spread* > 90° (raised out to the side), which reads from the
+  front; *swing* points the arm at the viewer and is foreshortened, so it is used for
+  small forward motion only.
 * **Transitions** (`transition_manager.py`): quintic crossfade, outgoing move keeps
   running, angles blended on the shortest arc.
 

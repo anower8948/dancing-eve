@@ -8,19 +8,26 @@
 - [ ] Tune choreography against real songs
 
 ## P2
-- [ ] Async GPU readback / lower idle CPU
+- [ ] Async GPU readback (idle already lowered to ≈10 %)
 - [ ] Downbeat / bar tracking; tempo octave resolution
 - [ ] GUI setup window
 - [ ] Hash-pinned per-OS lock files
 - [ ] Developer ID signing + notarisation; Windows installer; AppImage
-- [ ] Bolder happy eyes, more expressions
-- [ ] More movements / phrase-level patterns
+- [ ] Live-tune the session-2 moves with real songs
 
 ## P3
 - [ ] External GLB/VRM characters via the joint-name hook
 - [ ] User-defined movement sequences (JSON)
 - [ ] Optional, explicit microphone mode
 - [ ] Launch at login; localisation
+
+## Done (session 2)
+- [x] 14 new moves (27 total), second flourish (star_burst)
+- [x] Call-and-response phrase planner
+- [x] Surprised and sleepy expressions, bolder happy eyes
+- [x] Overhead arm poses via spread; square window; tighter drift limit
+- [x] Monotonic dance clock (bad phase input can't freeze moves)
+- [x] Idle CPU ≈19 % → ≈10 % (single-pass paint, power save with debug on, 15 FPS sleepy)
 
 ## Done (session 1)
 - [x] Environment inspection, capture & renderer feasibility probes

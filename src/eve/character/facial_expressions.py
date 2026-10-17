@@ -20,14 +20,14 @@ class EyeState:
 
 
 def eye_state(pose: np.ndarray) -> EyeState:
-    openness = float(np.clip(pose[Ch.EYE_OPEN], 0.0, 1.0))
+    openness = float(np.clip(pose[Ch.EYE_OPEN], 0.0, 1.3))  # up to 1.3 = wide-eyed surprise
     happy = float(np.clip(pose[Ch.EYE_HAPPY], 0.0, 1.0))
     # Happy eyes squint: the oval shrinks as the arc appears.
     oval_open = openness * (1.0 - 0.85 * happy)
     return EyeState(
         open_l=oval_open,
         open_r=oval_open,
-        happy=happy * openness,
+        happy=happy * min(openness, 1.0),
         look_x=float(np.clip(pose[Ch.EYE_LOOK_X], -1.0, 1.0)) * 0.35,
         look_y=float(np.clip(pose[Ch.EYE_LOOK_Y], -1.0, 1.0)) * 0.3,
         glow=float(np.clip(pose[Ch.EYE_GLOW], 0.4, 1.8)),

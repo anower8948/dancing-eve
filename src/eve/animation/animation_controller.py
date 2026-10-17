@@ -22,6 +22,8 @@ from eve.dance import motion_parameters as mp
 from eve.dance.dance_controller import DanceOutput
 
 IDLE_ATTENUATION_WHILE_DANCING = 0.65
+SLEEPY_AFTER = 45.0  # seconds without dancing before the robot starts getting drowsy
+SLEEPY_RAMP = 30.0  # seconds from the first yawn to fully sleepy
 
 
 class AnimationController:
@@ -35,6 +37,8 @@ class AnimationController:
         self._posture = np.ones(N_CHANNELS, dtype=bool)
         self._posture[list(EXPRESSION_CHANNELS)] = False
         self.reduced_motion = False
+        self.quiet_time = 0.0
+        self._drowsy = 0.0
         self.set_reduced_motion(reduced_motion)
 
     def set_reduced_motion(self, enabled: bool) -> None:
@@ -43,14 +47,27 @@ class AnimationController:
         self.springs.max_velocity = self._max_vel * scale
 
     def poke(self) -> None:
+        self.wake()
         self.idle.poke()
         self.springs.impulse(Ch.ROOT_Z, 0.5)
         self.springs.impulse(Ch.BODY_SQUASH, 0.8)
 
+    def wake(self) -> None:
+        """Music or a click wakes a sleepy robot (the springs make it a gentle wake-up)."""
+        self.quiet_time = 0.0
+
+    @property
+    def drowsiness(self) -> float:
+        return self._drowsy
+
     def update(self, dt: float, dance: DanceOutput | None) -> np.ndarray:
         dt = min(max(dt, 0.0), 0.1)  # avoid huge steps after a stall
-        idle = self.idle.update(dt)
         w = dance.weight if dance is not None else 0.0
+        self.quiet_time = self.quiet_time + dt if w < 0.02 else 0.0
+        target_drowsy = min(1.0, max(0.0, (self.quiet_time - SLEEPY_AFTER) / SLEEPY_RAMP))
+        rate = 0.15 if target_drowsy > self._drowsy else 1.5  # fall asleep slowly, wake up fast
+        self._drowsy += (target_drowsy - self._drowsy) * min(1.0, dt * rate)
+        idle = self.idle.update(dt, self._drowsy)
         target = self._target
         np.multiply(idle, 1.0 - IDLE_ATTENUATION_WHILE_DANCING * w, out=target)
         if dance is not None and w > 0:
@@ -68,7 +85,7 @@ class AnimationController:
         x = self.springs.step(target, dt)
         pose = self._pose
         pose[:] = x
-        pose[Ch.EYE_OPEN] = float(np.clip(x[Ch.EYE_OPEN], 0.0, 1.0)) * (1.0 - 0.96 * self.idle.blink_amount)
+        pose[Ch.EYE_OPEN] = float(np.clip(x[Ch.EYE_OPEN], 0.0, 1.3)) * (1.0 - 0.96 * self.idle.blink_amount)
         return pose
 
     @property

@@ -30,7 +30,7 @@ class Settings:
     sensitivity: float = 1.0
     dance_intensity: float = 1.0
     reduced_motion: bool = False
-    character_size: int = 260  # window height in logical pixels
+    character_size: int = 280  # window height in logical pixels
     always_on_top: bool = True
     click_through: bool = False
     power_saving: bool = False  # 30 FPS cap

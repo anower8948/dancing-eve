@@ -116,11 +116,14 @@ class CompanionWindow(QWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
+        # One pass: the frame covers the whole window and already carries alpha, so
+        # "Source" replaces the previous contents without a separate clear.
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         if self._image is not None:
             painter.drawImage(QPointF(0, 0), self._image)
+        else:
+            painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         if self._listening:
             self._paint_listening_indicator(painter)
         painter.end()

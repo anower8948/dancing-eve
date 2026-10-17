@@ -30,7 +30,7 @@ from eve.audio.capture_manager import CaptureManager
 from eve.audio.capture_status import CaptureStatus, CaptureStatusInfo
 from eve.audio.sample_buffer import SampleBuffer
 from eve.config import Settings, validate
-from eve.constants import IDLE_FPS, IDLE_POWER_SAVE_AFTER, STATUS_POLL_MS
+from eve.constants import IDLE_FPS, IDLE_POWER_SAVE_AFTER, SLEEPY_FPS, STATUS_POLL_MS
 from eve.core.lifecycle import ShutdownSequence
 from eve.dance.dance_controller import DanceController, DanceOutput, DanceSettings
 from eve.dance.dance_state import DanceState
@@ -182,12 +182,14 @@ class EveApplication(QObject):
     # ------------------------------------------------------------------------------------
     # frame loop
     # ------------------------------------------------------------------------------------
-    def _apply_frame_rate(self, idle: bool = False) -> None:
+    def _apply_frame_rate(self, idle: bool = False, sleepy: bool = False) -> None:
         fps = self.settings.effective_fps
         if self.options.fps:
             fps = min(30, self.options.fps) if self.settings.power_saving else self.options.fps
         if idle:
             fps = min(fps, IDLE_FPS)
+        if sleepy:
+            fps = min(fps, SLEEPY_FPS)  # sleepy motion is slow; fewer frames look the same
         if not self.window.isVisible():
             fps = 5
         interval = max(1, int(round(1000.0 / fps)))
@@ -226,7 +228,15 @@ class EveApplication(QObject):
         self._frames_total += 1
         idle = output.state == DanceState.IDLE and output.weight < 0.02
         self._idle_for = self._idle_for + dt if idle else 0.0
-        self._apply_frame_rate(idle=self._idle_for > IDLE_POWER_SAVE_AFTER and not self.settings.debug_mode)
+        watching_debug = (
+            self.settings_window is not None
+            and self.settings_window.isVisible()
+            and self.settings_window.debug_panel.isVisible()
+        )
+        self._apply_frame_rate(
+            idle=self._idle_for > IDLE_POWER_SAVE_AFTER and not watching_debug,
+            sleepy=self.animation.drowsiness > 0.8 and not watching_debug,
+        )
 
     # ------------------------------------------------------------------------------------
     # capture status

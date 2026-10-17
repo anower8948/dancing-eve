@@ -1,5 +1,25 @@
 # Implementation log
 
+## 2026-10-17 — Session 2 (macOS 27.0, Apple M2)
+
+* Added 14 moves: side_step, robot_pop, body_wave, headbang, fist_pump, hop_turn,
+  lean_back_groove, figure_eight, pendulum_swing, look_around, arm_circles, shimmy,
+  dip_and_rise, star_burst (second FLOURISH move).
+* Phrase planner in `Choreographer` (AB / ABA / BbA / AaB with mirrored repeats). Found
+  that phrases bypassed the 12 s spin cooldown → moves with cooldown ≥ 8 s are not phrased.
+* Expressions: wide-eyed surprise on surges (EYE_OPEN range now 0–1.3), sleepy mode after
+  45 s without dancing, tapered thicker happy arcs.
+* Pose-sheet review showed "arms up" moves using *swing* are foreshortened from the front
+  → arm spread limit raised to 165° and raised-arm poses use spread; window made square
+  (VIEW_HEIGHT 2.25, aspect 1.0), ROOT_X limit ±0.22 to avoid clipping; default size 280.
+* A preview harness fed a frozen beat phase and the dance clock stalled at ~0.46 beat →
+  phase correction is now capped at half a frame's advance (clock is monotonic).
+* CPU: renderer alone 4.9 % at 24 FPS; app at 60 FPS ≈27 % (render 12, paint 8, rest 7).
+  Panda `threading-model Cull/Draw` and MSAA off did not help. Fixes: single-pass paint,
+  idle power save no longer disabled by debug mode, 15 FPS when sleepy. Idle steady
+  state 19 % → 9.9 %; sleepy 8.7 %.
+* 157 tests pass; ruff + mypy clean.
+
 ## 2026-10-16/17 — Session 1 (macOS 27.0, Apple M2)
 
 ### Phase 1 — environment & feasibility

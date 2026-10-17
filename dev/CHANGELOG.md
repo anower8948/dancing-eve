@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 — 2026-10-17 (unreleased)
+
+### Added
+- 14 new dance moves (27 total), including a second flourish.
+- Call-and-response phrases (a move, its mirror, a contrast, a return).
+- Wide-eyed surprise on musical drops; sleepy mode after a long silence; bolder happy eyes.
+
+### Changed
+- Raised-arm poses go out and up to the side so they read from the front.
+- Companion window is square and slightly wider in view; default size 280 px.
+- Lower CPU: ≈10 % idle (was ≈19 %), 15 FPS when sleepy, single-pass painting.
+
+### Fixed
+- Dance clock can no longer stall or run backwards on inconsistent beat-phase input.
+- Phrases could repeat long-cooldown moves (spins) back to back.
+
 ## 0.1.0 — 2026-10-17 (first release, macOS verified)
 
 ### Added
