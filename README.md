@@ -41,8 +41,8 @@ Details: [docs/setup-and-installation.md](docs/setup-and-installation.md).
 | | |
 |---|---|
 | macOS (Apple Silicon) | **Working and verified** — real system-audio capture, rendering, transparency, setup, packaging. |
-| Ubuntu 24.04 | **Verified in a container**: setup, tests, real PulseAudio capture, rendering, packaging. Not yet on a real desktop. |
-| Windows 10/11 | **Implemented; CI workflow ready**, not yet run on a Windows machine. |
+| Windows | **Verified on GitHub's Windows machines**: `run.bat` setup, tests, real WASAPI loopback capture (virtual sound card), rendering (software fallback, no GPU there), packaged `.exe`. Not yet on a desktop PC with a GPU. |
+| Ubuntu 24.04 | **Verified in a container and CI**: setup, tests, real PulseAudio capture, rendering, packaging. Not yet on a real desktop. |
 
 159 automated tests pass; ruff and mypy are clean. See
 [docs/cross-platform-support.md](docs/cross-platform-support.md) and

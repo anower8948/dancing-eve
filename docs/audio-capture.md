@@ -8,8 +8,8 @@ possible, the status says so and explains what to do.
 |---|---|---|---|
 | macOS 13+ | ScreenCaptureKit audio stream (PyObjC) | `eve/audio/platforms/macos_capture.py` | **Verified** on macOS 27.0 / M2 |
 | macOS (fallback) | Virtual loopback device (BlackHole, Loopback…) via SoundCard | `virtual_device.py` | Implemented, not verified (no virtual device installed) |
-| Windows 10/11 | WASAPI loopback of output endpoints via SoundCard | `windows_capture.py` | Implemented, **not verified** |
-| Ubuntu (PipeWire / PulseAudio) | Monitor source of the output sink via SoundCard (libpulse) | `linux_capture.py` | Implemented, **not verified** |
+| Windows 10/11 | WASAPI loopback of output endpoints via SoundCard | `windows_capture.py` | **Verified in CI** (virtual sound card) |
+| Ubuntu (PipeWire / PulseAudio) | Monitor source of the output sink via SoundCard (libpulse) | `linux_capture.py` | **Verified** in a container and CI (PulseAudio) |
 
 ## Status values
 
@@ -71,7 +71,13 @@ Only devices whose names match known loopback drivers are listed.
 * Captures the mix sent to an output endpoint (the default one unless a specific source
   is chosen). Reopens automatically when the default output device changes (checked every
   2 s). No permission prompt is involved.
-* COM is initialised (MTA) in every thread that touches WASAPI.
+* COM is initialised (MTA) in every thread that touches WASAPI — **after** importing
+  SoundCard, which initialises COM itself on first import and treats "already
+  initialised" (S_FALSE) as fatal. Getting this order wrong made the backend
+  "unavailable (Error 0x100000001)"; found and fixed through CI.
+* Verified on GitHub's Windows runner with the VB-CABLE virtual device: a 120 BPM beat
+  played with `Media.SoundPlayer` was captured through loopback (661 k samples, peak
+  −5.2 dBFS, 21 beats, tempo 119.9 BPM, confidence 0.78).
 * Known library behaviour: when nothing plays, Windows delivers no packets; SoundCard
   synthesises zeros, so the status becomes "nothing is playing" rather than an error.
 * Exclusive-mode apps (some ASIO/pro-audio setups) bypass the shared mix and cannot be

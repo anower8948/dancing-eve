@@ -20,6 +20,8 @@
   for Windows and Ubuntu.
 
 ### Fixed
+- Windows system-audio capture was unavailable (COM initialised before SoundCard import).
+- Renderer could accept a blank "parasite" buffer; every attempt is now validated.
 - Dance clock can no longer stall or run backwards on inconsistent beat-phase input.
 - Phrases could repeat long-cooldown moves (spins) back to back.
 

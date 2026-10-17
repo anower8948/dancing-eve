@@ -6,7 +6,10 @@ _Last updated: 2026-10-17 (session 3: Windows/Linux compatibility work)._
 setup, 159 tests, real PulseAudio monitor capture, rendering, headless-EGL and software
 fallbacks, PyInstaller build. Renderer fallback chain added; setup offers missing apt
 packages; Windows long-path warning; CI workflow `.github/workflows/platforms.yml` for
-Windows + Ubuntu (not yet run — needs a push).
+Windows + Ubuntu — **green** (run 38988911454): run.bat setup, 159 tests, real WASAPI
+loopback capture via VB-CABLE (119.9 BPM), software-rendered app 58 FPS, packaged .exe.
+CI found two Windows bugs, both fixed: SoundCard/COM init order (capture was
+"unavailable") and blank parasite buffers from the hidden-host-window renderer attempt.
 
 ## In one paragraph
 
@@ -44,7 +47,7 @@ macOS 27.0 (26A428), Apple M2 (8-core CPU, 10-core GPU), Python 3.12.13 (Homebre
 
 ## Incomplete / unverified
 
-* Windows: everything until CI runs; then real audio/GPU/desktop behaviour on a PC.
+* Windows: GPU rendering, desktop behaviour (transparency, tray, drag, DPI) on a real PC.
 * Ubuntu desktop: transparency, tray, always-on-top, PipeWire, real GPU (container only so far).
 * macOS: permission-denied flow live; drag/click-through/tray menu by hand;
   double-clicking `run.command` in Finder and the `.app` in Finder.

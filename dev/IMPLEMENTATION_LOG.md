@@ -17,7 +17,15 @@
   Windows long-path warning; run-ubuntu.sh knows Ptyxis and GNOME Console; SoundCard
   "data discontinuity" warnings filtered.
 * `.github/workflows/platforms.yml`: Windows + Ubuntu jobs (setup ×2, tests, diagnostics,
-  smoke test + screenshot, PyInstaller build + run). Not run yet.
+  smoke test + screenshot, PyInstaller build + run).
+* CI run 1 (green) exposed in its logs that WASAPI was "unavailable: Error 0x100000001":
+  SoundCard initialises COM on import and treats S_FALSE as fatal; we had called
+  CoInitializeEx first. Fixed import order. Added a VB-CABLE virtual sound card
+  (LABSN/sound-ci-helpers, pinned SHA) and a real capture step → 119.9 BPM via loopback.
+* Added a hidden-host-window GL attempt for drivers needing a window context. CI run 2
+  failed: on the GPU-less runner it returned a parasite buffer → blank frames and an app
+  that did not exit. Fix: BF_refuse_parasite + every renderer attempt must pass a
+  test-frame coverage check (≥ 2 %). CI run 3 green on both OSes.
 
 ## 2026-10-17 — Session 2 (macOS 27.0, Apple M2)
 
